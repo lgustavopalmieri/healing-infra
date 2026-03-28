@@ -30,8 +30,9 @@ provider "aws" {
 module "backend" {
   source = "../../modules/backend"
 
-  project_name = var.project_name
-  environment  = var.environment
-  aws_region   = var.aws_region
-  tags         = var.tags
+  project_name  = var.project_name
+  environment   = var.environment
+  aws_region    = var.aws_region
+  force_destroy = var.force_destroy
+  tags          = var.tags
 }

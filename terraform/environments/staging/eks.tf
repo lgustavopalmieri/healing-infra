@@ -18,6 +18,7 @@ module "eks" {
 
   # EKS
   kubernetes_version              = var.kubernetes_version
+  cluster_deletion_protection     = var.cluster_deletion_protection
   node_instance_types             = var.node_instance_types
   node_min_size                   = var.node_min_size
   node_max_size                   = var.node_max_size

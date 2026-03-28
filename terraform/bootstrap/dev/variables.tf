@@ -22,3 +22,9 @@ variable "tags" {
   type        = map(string)
   default     = {}
 }
+
+variable "force_destroy" {
+  description = "Allow destroying the S3 state bucket even when it contains objects."
+  type        = bool
+  default     = false
+}

@@ -84,6 +84,12 @@ variable "cluster_endpoint_private_access" {
   default     = true
 }
 
+variable "cluster_deletion_protection" {
+  description = "Enable deletion protection for the EKS cluster. Set to true in production."
+  type        = bool
+  default     = true
+}
+
 variable "node_instance_types" {
   description = "Instance types for the managed node groups."
   type        = list(string)

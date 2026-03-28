@@ -86,3 +86,9 @@ variable "skip_final_snapshot" {
   type        = bool
   default     = true
 }
+
+variable "deletion_protection" {
+  description = "Enable deletion protection. Set to true in production."
+  type        = bool
+  default     = false
+}

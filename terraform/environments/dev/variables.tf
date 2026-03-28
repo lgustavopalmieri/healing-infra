@@ -61,6 +61,12 @@ variable "kubernetes_version" {
   default = "1.35"
 }
 
+variable "cluster_deletion_protection" {
+  description = "Enable deletion protection for the EKS cluster."
+  type        = bool
+  default     = false
+}
+
 variable "node_instance_types" {
   type    = list(string)
   default = ["t3.medium"]

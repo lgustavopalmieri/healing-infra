@@ -22,3 +22,9 @@ variable "tags" {
   type        = map(string)
   default     = {}
 }
+
+variable "force_destroy" {
+  description = "Allow destroying the S3 bucket even when it contains objects. Use for dev/staging, never for production."
+  type        = bool
+  default     = false
+}

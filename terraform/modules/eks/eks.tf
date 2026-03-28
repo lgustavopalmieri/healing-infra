@@ -16,6 +16,7 @@ module "eks" {
   endpoint_public_access  = var.cluster_endpoint_public_access
 
   enable_cluster_creator_admin_permissions = true
+  deletion_protection                      = var.cluster_deletion_protection
 
   addons = {
     vpc-cni = {

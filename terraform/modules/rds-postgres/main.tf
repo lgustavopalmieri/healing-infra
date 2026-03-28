@@ -84,6 +84,7 @@ resource "aws_db_instance" "this" {
   publicly_accessible = false
   multi_az            = var.multi_az
   skip_final_snapshot = var.skip_final_snapshot
+  deletion_protection = var.deletion_protection
 
   tags = merge(local.common_tags, {
     Name = "${local.name_prefix}-pg"
