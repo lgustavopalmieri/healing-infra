@@ -49,6 +49,16 @@ es_app_user_password = "REPLACE-WITH-STRONG-PASSWORD"
 elastic_privatelink_service_name = "com.amazonaws.vpce.us-east-1.vpce-svc-0e42e1e06ed010238"
 elastic_privatelink_phz_domain   = "vpce.us-east-1.aws.elastic-cloud.com"
 
+# RDS PostgreSQL
+rds_db_name           = "healing_specialist_db"
+rds_username          = "REPLACE-WITH-DB-USERNAME"
+rds_password          = "REPLACE-WITH-STRONG-PASSWORD"
+rds_engine_version    = "17"
+rds_instance_class    = "db.t3.micro"
+rds_allocated_storage = 10
+rds_multi_az          = false
+rds_skip_final_snapshot = true
+
 tags = {
   Team = "platform"
 }

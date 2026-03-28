@@ -206,3 +206,50 @@ variable "elastic_privatelink_phz_domain" {
   type        = string
   default     = ""
 }
+
+# RDS PostgreSQL
+variable "rds_db_name" {
+  description = "Name of the default database to create."
+  type        = string
+}
+
+variable "rds_username" {
+  description = "Master database username."
+  type        = string
+}
+
+variable "rds_password" {
+  description = "Master database password."
+  type        = string
+  sensitive   = true
+}
+
+variable "rds_engine_version" {
+  description = "PostgreSQL engine version."
+  type        = string
+  default     = "17"
+}
+
+variable "rds_instance_class" {
+  description = "RDS instance class."
+  type        = string
+  default     = "db.t3.micro"
+}
+
+variable "rds_allocated_storage" {
+  description = "Allocated storage in GB."
+  type        = number
+  default     = 10
+}
+
+variable "rds_multi_az" {
+  description = "Enable Multi-AZ deployment for high availability."
+  type        = bool
+  default     = false
+}
+
+variable "rds_skip_final_snapshot" {
+  description = "Skip final snapshot on deletion. Set to false in production."
+  type        = bool
+  default     = true
+}
