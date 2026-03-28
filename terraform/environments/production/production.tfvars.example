@@ -1,0 +1,34 @@
+# Copy this file to production.tfvars and fill in the values.
+# NEVER commit the actual .tfvars file — it is already in .gitignore.
+#
+# Before applying this environment, make sure you have:
+#   1. Applied the bootstrap: terraform -chdir=../../bootstrap/production apply -var-file=production.tfvars
+#   2. Updated the backend block in main.tf with the bootstrap outputs
+
+project_name = "myapp"
+environment  = "production"
+cluster_name = "myapp-production"
+aws_region   = "us-east-1"
+
+# Networking
+vpc_cidr           = "10.0.0.0/16"
+single_nat_gateway = false
+
+# EKS
+kubernetes_version  = "1.35"
+node_instance_types = ["t3.medium"]
+node_min_size       = 3
+node_max_size       = 6
+node_desired_size   = 3
+
+# ECR
+ecr_repository_name = "my-app"
+ecr_force_delete    = false
+
+# GitHub OIDC
+github_org   = "my-github-org"
+github_repos = ["my-repo"]
+
+tags = {
+  Team = "platform"
+}
