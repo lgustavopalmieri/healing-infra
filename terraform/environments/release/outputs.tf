@@ -25,3 +25,16 @@ output "vpc_id" {
 output "dns_records" {
   value = module.eks.dns_records
 }
+
+# Elasticsearch
+output "elasticsearch_endpoint" {
+  value = module.elasticsearch.elasticsearch_https_endpoint
+}
+
+output "kibana_endpoint" {
+  value = module.elasticsearch.kibana_https_endpoint
+}
+
+output "elasticsearch_app_user" {
+  value = module.elasticsearch.app_user_name
+}

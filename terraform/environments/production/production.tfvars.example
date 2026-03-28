@@ -33,6 +33,16 @@ github_repos = ["my-repo"]
 shared_state_bucket = "myapp-shared-terraform-state"
 dns_records         = ["api.myapp.com"]
 
+# Elastic Cloud
+ec_api_key           = "REPLACE-WITH-YOUR-ELASTIC-CLOUD-API-KEY"
+es_deployment_name   = "myapp-production"
+es_region            = "us-east-1"
+es_size              = "8g"
+es_zone_count        = 2
+es_kibana_size       = "2g"
+es_app_user_name     = "app_user"
+es_app_user_password = "REPLACE-WITH-STRONG-PASSWORD"
+
 tags = {
   Team = "platform"
 }

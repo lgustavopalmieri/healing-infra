@@ -1,3 +1,7 @@
+###############################################################################
+# Required Providers — provider configuration is the caller's responsibility
+###############################################################################
+
 terraform {
   required_version = ">= 1.5"
 

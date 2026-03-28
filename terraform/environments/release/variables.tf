@@ -122,3 +122,75 @@ variable "dns_records" {
   type        = list(string)
   default     = []
 }
+
+# Elastic Cloud
+variable "ec_api_key" {
+  description = "Elastic Cloud API key."
+  type        = string
+  sensitive   = true
+}
+
+variable "es_region" {
+  description = "Elastic Cloud deployment region."
+  type        = string
+  default     = "us-east-1"
+}
+
+variable "es_deployment_name" {
+  description = "Elastic Cloud deployment name."
+  type        = string
+}
+
+variable "es_deployment_template_id" {
+  description = "Elastic Cloud deployment template ID."
+  type        = string
+  default     = "aws-general-purpose"
+}
+
+variable "es_version_regex" {
+  description = "Regex to select Elasticsearch version."
+  type        = string
+  default     = "9\\..*"
+}
+
+variable "es_size" {
+  description = "Elasticsearch hot tier memory size."
+  type        = string
+  default     = "4g"
+}
+
+variable "es_zone_count" {
+  description = "Number of availability zones for Elasticsearch."
+  type        = number
+  default     = 1
+}
+
+variable "es_kibana_size" {
+  description = "Kibana memory size."
+  type        = string
+  default     = "1g"
+}
+
+variable "es_app_user_name" {
+  description = "Elasticsearch application user name."
+  type        = string
+  default     = "app_user"
+}
+
+variable "es_app_user_password" {
+  description = "Elasticsearch application user password."
+  type        = string
+  sensitive   = true
+}
+
+variable "es_app_user_password_version" {
+  description = "Increment to force password rotation."
+  type        = number
+  default     = 1
+}
+
+variable "es_app_indices" {
+  description = "Index patterns the app user can access."
+  type        = list(string)
+  default     = ["*"]
+}

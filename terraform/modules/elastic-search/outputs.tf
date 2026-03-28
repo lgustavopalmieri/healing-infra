@@ -1,47 +1,45 @@
+###############################################################################
+# Outputs
+###############################################################################
+
 output "elasticsearch_https_endpoint" {
-  description = "Endpoint HTTPS do Elasticsearch"
+  description = "Elasticsearch HTTPS endpoint."
   value       = ec_deployment.this.elasticsearch.https_endpoint
 }
 
 output "elasticsearch_cloud_id" {
-  description = "Cloud ID para configuração de clientes"
+  description = "Cloud ID for client configuration."
   value       = ec_deployment.this.elasticsearch.cloud_id
   sensitive   = true
 }
 
 output "kibana_https_endpoint" {
-  description = "Endpoint HTTPS do Kibana"
+  description = "Kibana HTTPS endpoint."
   value       = ec_deployment.this.kibana.https_endpoint
 }
 
 output "elasticsearch_username" {
-  description = "Usuário admin do Elasticsearch"
+  description = "Elasticsearch admin username."
   value       = ec_deployment.this.elasticsearch_username
 }
 
 output "elasticsearch_password" {
-  description = "Senha do usuário admin"
+  description = "Elasticsearch admin password."
   value       = ec_deployment.this.elasticsearch_password
   sensitive   = true
 }
 
 output "app_user_name" {
-  description = "Usuário de aplicação para conexão ao Elasticsearch"
+  description = "Application user for Elasticsearch connections."
   value       = elasticstack_elasticsearch_security_user.app_user.username
 }
 
-output "app_user_password" {
-  description = "Senha do usuário de aplicação"
-  value       = var.app_user_password
-  sensitive   = true
-}
-
 output "deployment_id" {
-  description = "ID do deployment"
+  description = "Elastic Cloud deployment ID."
   value       = ec_deployment.this.id
 }
 
 output "elasticsearch_version" {
-  description = "Versão do Elasticsearch provisionada"
+  description = "Provisioned Elasticsearch version."
   value       = data.ec_stack.latest.version
 }

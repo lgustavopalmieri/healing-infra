@@ -1,91 +1,115 @@
-variable "ec_api_key" {
-  description = "API Key da Elastic Cloud (gere em https://cloud.elastic.co/account/keys)"
+###############################################################################
+# General
+###############################################################################
+
+variable "project_name" {
+  description = "Project name. Used as prefix for resource naming."
   type        = string
-  sensitive   = true
 }
 
-variable "region" {
-  description = "Região do deployment na Elastic Cloud (ex: us-east-1, sa-east-1, eu-west-1)"
+variable "environment" {
+  description = "Deployment environment (e.g. dev, staging, production)."
   type        = string
-  default     = "us-east-1"
+}
+
+variable "tags" {
+  description = "Additional tags applied to all module resources."
+  type        = map(string)
+  default     = {}
+}
+
+###############################################################################
+# Elastic Cloud Deployment
+###############################################################################
+
+variable "region" {
+  description = "Elastic Cloud deployment region (e.g. us-east-1, sa-east-1, eu-west-1)."
+  type        = string
 }
 
 variable "deployment_name" {
-  description = "Nome do deployment"
+  description = "Elastic Cloud deployment name."
   type        = string
-  default     = "my-elasticsearch"
 }
 
 variable "deployment_template_id" {
-  description = "Template ID do deployment (varia por região e provider)"
+  description = "Deployment template ID (varies by region and provider)."
   type        = string
   default     = "aws-general-purpose"
 }
 
 variable "elasticsearch_version_regex" {
-  description = "Regex para selecionar a versão do Elasticsearch (ex: \"9\\..*\" para sempre a última 9.x)"
+  description = "Regex to select the Elasticsearch version (e.g. \"9\\\\..*\" for latest 9.x)."
   type        = string
   default     = "9\\..*"
 }
 
 variable "elasticsearch_size" {
-  description = "Tamanho da memória do hot tier (ex: 1g, 2g, 4g, 8g)"
+  description = "Hot tier memory size (e.g. 1g, 2g, 4g, 8g)."
   type        = string
   default     = "4g"
 
   validation {
     condition     = contains(["1g", "2g", "4g", "8g", "16g", "32g", "64g"], var.elasticsearch_size)
-    error_message = "Tamanho inválido. Use: 1g, 2g, 4g, 8g, 16g, 32g ou 64g."
+    error_message = "Invalid size. Use: 1g, 2g, 4g, 8g, 16g, 32g or 64g."
   }
 }
 
 variable "elasticsearch_zone_count" {
-  description = "Número de zonas de disponibilidade (1, 2 ou 3)"
+  description = "Number of availability zones (1, 2 or 3)."
   type        = number
   default     = 1
 
   validation {
     condition     = contains([1, 2, 3], var.elasticsearch_zone_count)
-    error_message = "Zone count deve ser 1, 2 ou 3."
+    error_message = "Zone count must be 1, 2 or 3."
   }
 }
 
+###############################################################################
+# Kibana
+###############################################################################
+
 variable "kibana_size" {
-  description = "Tamanho da memória do Kibana (ex: 1g, 2g)"
+  description = "Kibana memory size (e.g. 1g, 2g, 4g, 8g)."
   type        = string
   default     = "1g"
 
   validation {
     condition     = contains(["1g", "2g", "4g", "8g"], var.kibana_size)
-    error_message = "Tamanho inválido para Kibana. Use: 1g, 2g, 4g ou 8g."
+    error_message = "Invalid Kibana size. Use: 1g, 2g, 4g or 8g."
   }
 }
 
+###############################################################################
+# Application User
+###############################################################################
+
 variable "app_user_name" {
-  description = "Nome do usuário de aplicação no Elasticsearch"
+  description = "Application user name in Elasticsearch."
   type        = string
   default     = "app_user"
 }
 
 variable "app_user_password" {
-  description = "Senha do usuário de aplicação (mínimo 6 caracteres)"
+  description = "Application user password (minimum 6 characters)."
   type        = string
   sensitive   = true
 
   validation {
     condition     = length(var.app_user_password) >= 6
-    error_message = "A senha deve ter pelo menos 6 caracteres."
+    error_message = "Password must be at least 6 characters."
   }
 }
 
 variable "app_user_password_version" {
-  description = "Incremente para forçar a troca de senha do app_user sem recriar o recurso"
+  description = "Increment to force password rotation without recreating the resource."
   type        = number
   default     = 1
 }
 
 variable "app_indices" {
-  description = "Padrões de índices que o app_user pode acessar (ex: [\"app-*\", \"logs-*\"]). Use [\"*\"] para todos."
+  description = "Index patterns the app_user can access (e.g. [\"app-*\", \"logs-*\"]). Use [\"*\"] for all."
   type        = list(string)
   default     = ["*"]
 }

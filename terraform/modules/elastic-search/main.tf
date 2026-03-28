@@ -1,3 +1,17 @@
+###############################################################################
+# Elastic Cloud Deployment
+###############################################################################
+
+locals {
+  name_prefix = "${var.project_name}-${var.environment}"
+
+  common_tags = merge(var.tags, {
+    Project     = var.project_name
+    Environment = var.environment
+    ManagedBy   = "terraform"
+  })
+}
+
 data "ec_stack" "latest" {
   version_regex = var.elasticsearch_version_regex
   region        = var.region
@@ -8,6 +22,8 @@ resource "ec_deployment" "this" {
   region                 = var.region
   version                = data.ec_stack.latest.version
   deployment_template_id = var.deployment_template_id
+
+  tags = local.common_tags
 
   elasticsearch = {
     hot = {
@@ -23,9 +39,12 @@ resource "ec_deployment" "this" {
   }
 }
 
-# Role com permissões de leitura/escrita para as aplicações
+###############################################################################
+# Application Role & User
+###############################################################################
+
 resource "elasticstack_elasticsearch_security_role" "app_role" {
-  name = "app_role"
+  name = "${local.name_prefix}-app-role"
 
   indices {
     names      = var.app_indices
@@ -35,7 +54,6 @@ resource "elasticstack_elasticsearch_security_role" "app_role" {
   cluster = ["monitor"]
 }
 
-# Usuário dedicado para as aplicações
 resource "elasticstack_elasticsearch_security_user" "app_user" {
   username            = var.app_user_name
   password_wo         = var.app_user_password
