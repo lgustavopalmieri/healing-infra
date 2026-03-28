@@ -1,0 +1,10 @@
+# Copy this file to dev.tfvars and fill in the values.
+# Run this ONCE before the dev environment.
+
+project_name = "myapp"
+environment  = "dev"
+aws_region   = "us-east-1"
+
+tags = {
+  Team = "platform"
+}

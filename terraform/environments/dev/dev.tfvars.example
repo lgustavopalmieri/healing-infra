@@ -1,0 +1,73 @@
+# Copy this file to dev.tfvars and fill in the values.
+# NEVER commit the actual .tfvars file — it is already in .gitignore.
+#
+# Dev environment — mirrors production stack but with lightweight config.
+# No custom DNS — access the ALB via the AWS-generated hostname.
+# Designed for fast spin-up and teardown (terraform destroy).
+#
+# Before applying:
+#   1. Bootstrap: terraform -chdir=../../bootstrap/dev apply -var-file=dev.tfvars
+#   2. Update the backend block in main.tf with bootstrap outputs
+
+project_name = "myapp"
+environment  = "dev"
+cluster_name = "myapp-dev"
+aws_region   = "us-east-1"
+
+# Networking — single NAT to save cost
+vpc_cidr           = "10.0.0.0/16"
+single_nat_gateway = true
+
+# EKS — minimal nodes
+kubernetes_version  = "1.35"
+node_instance_types = ["t3.medium"]
+node_min_size       = 1
+node_max_size       = 3
+node_desired_size   = 1
+
+# ECR — force delete for easy teardown
+ecr_repository_name = "my-app"
+ecr_force_delete    = true
+
+# GitHub OIDC
+github_org   = "my-github-org"
+github_repos = ["my-repo"]
+
+# Elastic Cloud — smallest sizes
+ec_api_key           = "REPLACE-WITH-YOUR-ELASTIC-CLOUD-API-KEY"
+es_deployment_name   = "myapp-dev"
+es_region            = "us-east-1"
+es_size              = "1g"
+es_zone_count        = 1
+es_kibana_size       = "1g"
+es_app_user_name     = "app_user"
+es_app_user_password = "REPLACE-WITH-STRONG-PASSWORD"
+
+# PrivateLink — Elastic Cloud
+elastic_privatelink_service_name = "com.amazonaws.vpce.us-east-1.vpce-svc-0e42e1e06ed010238"
+elastic_privatelink_phz_domain   = "vpce.us-east-1.aws.elastic-cloud.com"
+
+# RDS PostgreSQL — smallest, no HA, skip snapshot for easy destroy
+rds_db_name             = "healing_specialist_db"
+rds_username            = "REPLACE-WITH-DB-USERNAME"
+rds_password            = "REPLACE-WITH-STRONG-PASSWORD"
+rds_engine_version      = "17"
+rds_instance_class      = "db.t3.micro"
+rds_allocated_storage   = 10
+rds_multi_az            = false
+rds_skip_final_snapshot = true
+
+# Kafka (Confluent Cloud) — basic cluster
+confluent_api_key              = "REPLACE-WITH-CONFLUENT-API-KEY"
+confluent_api_secret           = "REPLACE-WITH-CONFLUENT-API-SECRET"
+kafka_environment_name         = "myapp-dev"
+kafka_cluster_name             = "myapp-dev-kafka"
+kafka_region                   = "us-east-1"
+kafka_cluster_type             = "basic"
+kafka_app_service_account_name = "app-service-account"
+kafka_app_topic_name           = "app-events"
+kafka_app_topic_partitions     = 1
+
+tags = {
+  Team = "platform"
+}
