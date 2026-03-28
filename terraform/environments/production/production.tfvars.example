@@ -59,6 +59,17 @@ rds_allocated_storage = 10
 rds_multi_az          = true
 rds_skip_final_snapshot = false
 
+# Kafka (Confluent Cloud)
+confluent_api_key              = "REPLACE-WITH-CONFLUENT-API-KEY"
+confluent_api_secret           = "REPLACE-WITH-CONFLUENT-API-SECRET"
+kafka_environment_name         = "myapp-production"
+kafka_cluster_name             = "myapp-production-kafka"
+kafka_region                   = "us-east-1"
+kafka_cluster_type             = "basic"
+kafka_app_service_account_name = "app-service-account"
+kafka_app_topic_name           = "app-events"
+kafka_app_topic_partitions     = 3
+
 tags = {
   Team = "platform"
 }

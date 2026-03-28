@@ -253,3 +253,62 @@ variable "rds_skip_final_snapshot" {
   type        = bool
   default     = true
 }
+
+# Kafka (Confluent Cloud)
+variable "confluent_api_key" {
+  description = "Confluent Cloud API key."
+  type        = string
+  sensitive   = true
+}
+
+variable "confluent_api_secret" {
+  description = "Confluent Cloud API secret."
+  type        = string
+  sensitive   = true
+}
+
+variable "kafka_environment_name" {
+  description = "Confluent Cloud environment display name."
+  type        = string
+}
+
+variable "kafka_cluster_name" {
+  description = "Kafka cluster display name."
+  type        = string
+}
+
+variable "kafka_cloud_provider" {
+  description = "Cloud provider for the Kafka cluster."
+  type        = string
+  default     = "AWS"
+}
+
+variable "kafka_region" {
+  description = "Cloud region for the Kafka cluster."
+  type        = string
+  default     = "us-east-1"
+}
+
+variable "kafka_cluster_type" {
+  description = "Cluster type: basic, standard or dedicated. PrivateLink requires dedicated."
+  type        = string
+  default     = "basic"
+}
+
+variable "kafka_app_service_account_name" {
+  description = "Display name for the Kafka application service account."
+  type        = string
+  default     = "app-service-account"
+}
+
+variable "kafka_app_topic_name" {
+  description = "Name of the default Kafka topic."
+  type        = string
+  default     = "app-events"
+}
+
+variable "kafka_app_topic_partitions" {
+  description = "Number of partitions for the default topic."
+  type        = number
+  default     = 3
+}
