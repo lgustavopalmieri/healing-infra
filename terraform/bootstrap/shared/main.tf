@@ -1,15 +1,15 @@
 ###############################################################################
-# Bootstrap — Release Environment
+# Bootstrap — Shared Environment
 #
-# Creates the S3 bucket and DynamoDB table for this environment's remote state.
+# Creates the S3 bucket and DynamoDB table for the shared layer's remote state.
 # Uses LOCAL state on purpose — this is the bootstrap.
 #
 # Usage:
-#   cp release.tfvars.example release.tfvars
+#   cp shared.tfvars.example shared.tfvars
 #   terraform init
-#   terraform apply -var-file=release.tfvars
+#   terraform apply -var-file=shared.tfvars
 #
-# Then copy the outputs into environments/release/main.tf backend block.
+# Then copy the outputs into environments/shared/main.tf backend block.
 ###############################################################################
 
 terraform {

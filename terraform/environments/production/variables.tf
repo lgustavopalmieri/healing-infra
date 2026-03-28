@@ -103,3 +103,22 @@ variable "github_org" {
 variable "github_repos" {
   type = list(string)
 }
+
+# DNS
+variable "shared_state_bucket" {
+  description = "S3 bucket name of the shared environment state. Used to read the Route53 zone_id."
+  type        = string
+  default     = ""
+}
+
+variable "zone_id" {
+  description = "Route53 zone ID. If provided, takes precedence over shared remote state lookup."
+  type        = string
+  default     = ""
+}
+
+variable "dns_records" {
+  description = "List of DNS record names to create as aliases to the ALB."
+  type        = list(string)
+  default     = []
+}

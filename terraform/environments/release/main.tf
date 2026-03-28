@@ -25,6 +25,25 @@ provider "aws" {
   region = var.aws_region
 }
 
+###############################################################################
+# Remote State — shared layer (Route53 hosted zone)
+###############################################################################
+
+data "terraform_remote_state" "shared" {
+  count   = var.zone_id != "" ? 0 : (var.shared_state_bucket != "" ? 1 : 0)
+  backend = "s3"
+
+  config = {
+    bucket = var.shared_state_bucket
+    key    = "environments/shared/terraform.tfstate"
+    region = var.aws_region
+  }
+}
+
+locals {
+  zone_id = var.zone_id != "" ? var.zone_id : try(data.terraform_remote_state.shared[0].outputs.zone_id, "")
+}
+
 data "aws_eks_cluster_auth" "this" {
   name = module.eks.cluster_name
 }
@@ -77,6 +96,10 @@ module "eks" {
   # GitHub OIDC
   github_org   = var.github_org
   github_repos = var.github_repos
+
+  # DNS
+  zone_id     = local.zone_id
+  dns_records = var.dns_records
 
   tags = var.tags
 }

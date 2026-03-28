@@ -21,3 +21,7 @@ output "github_actions_role_arn" {
 output "vpc_id" {
   value = module.eks.vpc_id
 }
+
+output "dns_records" {
+  value = module.eks.dns_records
+}

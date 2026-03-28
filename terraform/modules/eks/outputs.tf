@@ -55,3 +55,9 @@ output "github_actions_role_arn" {
   description = "IAM role ARN to configure in GitHub Actions."
   value       = aws_iam_role.github_actions.arn
 }
+
+# --- DNS ---
+output "dns_records" {
+  description = "DNS records created for this environment."
+  value       = { for k, v in aws_route53_record.app : k => v.fqdn }
+}

@@ -1,0 +1,13 @@
+# Copy this file to shared.tfvars and fill in the values.
+# NEVER commit the actual .tfvars file — it is already in .gitignore.
+#
+# Before applying, make sure you have:
+#   1. Applied the bootstrap: terraform -chdir=../../bootstrap/shared apply -var-file=shared.tfvars
+#   2. Updated the backend block in main.tf with the bootstrap outputs
+
+aws_region  = "us-east-1"
+domain_name = "myapp.com"
+
+tags = {
+  Team = "platform"
+}

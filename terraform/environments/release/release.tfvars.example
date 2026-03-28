@@ -29,6 +29,10 @@ ecr_force_delete    = true
 github_org   = "my-github-org"
 github_repos = ["my-repo"]
 
+# DNS — get shared_state_bucket from: terraform -chdir=../../bootstrap/shared output
+shared_state_bucket = "myapp-shared-terraform-state"
+dns_records         = ["api.release.myapp.com"]
+
 tags = {
   Team = "platform"
 }

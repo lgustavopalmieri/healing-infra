@@ -163,3 +163,19 @@ variable "github_repos" {
   description = "List of GitHub repositories with ECR access via OIDC."
   type        = list(string)
 }
+
+###############################################################################
+# DNS Records
+###############################################################################
+
+variable "zone_id" {
+  description = "Route53 hosted zone ID. If empty, DNS records will not be created."
+  type        = string
+  default     = ""
+}
+
+variable "dns_records" {
+  description = "List of DNS record names to create as aliases to the ALB (e.g. [\"api.release.myapp.com\"])."
+  type        = list(string)
+  default     = []
+}
