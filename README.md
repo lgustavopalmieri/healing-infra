@@ -4,16 +4,17 @@ Production-grade infrastructure powering the Healing platform at global scale �
 
 ## What gets provisioned
 
-| Layer | Resources |
-|---|---|
-| Networking | VPC, public/private subnets, NAT Gateway |
-| Compute | EKS (managed node groups) + ALB Ingress Controller |
-| Container Registry | ECR with GitHub Actions OIDC (keyless push) |
-| DNS | Route53 hosted zone + ALB alias records |
-| Search | Elastic Cloud (Elasticsearch + Kibana) with per-app RBAC |
-| Messaging | Kafka / MSK *(coming soon)* |
-| Database | RDS PostgreSQL *(coming soon)* |
-| State backend | S3 + DynamoDB (locking) per environment |
+| Layer | Resources | Connectivity |
+|---|---|---|
+| Networking | VPC, public/private subnets, NAT Gateway | — |
+| Compute | EKS (managed node groups) + ALB Ingress Controller | — |
+| Container Registry | ECR with GitHub Actions OIDC (keyless push) | — |
+| DNS | Route53 hosted zone + ALB alias records | — |
+| Search | Elastic Cloud (Elasticsearch + Kibana) with per-app RBAC | AWS PrivateLink |
+| Messaging | Confluent Cloud Kafka with service accounts + ACLs | Public (TLS/SASL); PrivateLink when dedicated |
+| Database | RDS PostgreSQL | VPC private subnets (not publicly accessible) |
+| PrivateLink | Generic reusable module for VPC Endpoints + PHZ | — |
+| State backend | S3 + DynamoDB (locking) per environment | — |
 
 ## Repository structure
 
@@ -25,15 +26,16 @@ terraform/
 │   └── production/
 ├── environments/       # Root modules — one per environment
 │   ├── shared/         # Shared resources (Route53)
-│   ├── release/        # Pre-production
-│   └── production/     # Production
+│   ├── release/        # Pre-production (EKS + Elasticsearch + Kafka + RDS)
+│   └── production/     # Production (EKS + Elasticsearch + Kafka + RDS)
 └── modules/            # Reusable modules
     ├── backend/        # S3 + DynamoDB
     ├── dns/            # Route53
     ├── eks/            # VPC + EKS + ECR + ALB + OIDC + DNS
-    ├── elastic-search/ # Elastic Cloud + app user
-    ├── kafka/          # MSK (coming soon)
-    └── rds-postgres/   # RDS PostgreSQL (coming soon)
+    ├── elastic-search/ # Elastic Cloud + app user + PrivateLink traffic filter
+    ├── privatelink/    # Generic VPC Interface Endpoint + SG + Private Hosted Zone
+    ├── kafka/          # Confluent Cloud Kafka + service account + ACLs + topic
+    └── rds-postgres/   # RDS PostgreSQL in VPC private subnets
 
 k8s/                    # Kubernetes manifests (GitOps)
 └── ...                 # Deployments, Services, Ingress, ConfigMaps, etc.
@@ -44,6 +46,16 @@ k8s/                    # Kubernetes manifests (GitOps)
 - **shared** — cross-environment resources (DNS hosted zone)
 - **release** — staging / pre-production
 - **production** — live workloads
+
+## Network connectivity
+
+| Service | Location | How pods connect |
+|---|---|---|
+| Elastic Cloud | Elastic Cloud (external) | AWS PrivateLink — traffic stays on AWS backbone, never hits the internet |
+| Confluent Cloud Kafka | Confluent Cloud (external) | Public internet (TLS + SASL). PrivateLink available when upgrading to dedicated cluster |
+| RDS PostgreSQL | EKS VPC private subnets | Direct private network — no internet, no PrivateLink needed |
+
+PrivateLink is managed by a generic reusable module (`modules/privatelink`) that can be instantiated for any service. See `.kiro/steering/privatelink.md` for the full standard.
 
 ## GitOps
 
@@ -70,6 +82,7 @@ terraform -chdir=terraform/environments/<env> apply -var-file=<env>.tfvars
 - Terraform >= 1.5
 - AWS Provider ~> 6.0 | Helm ~> 3.0 | Kubernetes ~> 2.0
 - Elastic Cloud (ec ~> 0.12, elasticstack ~> 0.11)
+- Confluent Cloud (confluentinc/confluent ~> 2.0)
 - Community modules: `terraform-aws-modules/eks/aws`, `vpc/aws`, `iam/aws`
 
 ## Conventions
@@ -78,3 +91,4 @@ terraform -chdir=terraform/environments/<env> apply -var-file=<env>.tfvars
 - Required tags: `Project`, `Environment`, `ManagedBy`
 - Sensitive values are never committed — `.tfvars` is in `.gitignore`
 - Remote state with encryption enabled and DynamoDB locking
+- External services use AWS PrivateLink when supported by the provider
