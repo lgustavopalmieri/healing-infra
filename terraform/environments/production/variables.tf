@@ -49,6 +49,12 @@ variable "single_nat_gateway" {
   default = true
 }
 
+variable "availability_zones" {
+  description = "List of AZs for subnet distribution. If empty, defaults to the first 3 AZs in the region."
+  type        = list(string)
+  default     = []
+}
+
 # EKS
 variable "kubernetes_version" {
   type    = string
