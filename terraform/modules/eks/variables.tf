@@ -175,7 +175,7 @@ variable "zone_id" {
 }
 
 variable "dns_records" {
-  description = "List of DNS record names to create as aliases to the ALB (e.g. [\"api.release.myapp.com\"])."
+  description = "List of DNS record names to create as aliases to the ALB (e.g. [\"api.staging.myapp.com\"])."
   type        = list(string)
   default     = []
 }

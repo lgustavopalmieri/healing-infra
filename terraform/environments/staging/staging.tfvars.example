@@ -1,13 +1,13 @@
-# Copy this file to release.tfvars and fill in the values.
+# Copy this file to staging.tfvars and fill in the values.
 # NEVER commit the actual .tfvars file — it is already in .gitignore.
 #
 # Before applying this environment, make sure you have:
-#   1. Applied the bootstrap: terraform -chdir=../../bootstrap apply -var-file=bootstrap.tfvars
+#   1. Applied the bootstrap: terraform -chdir=../../bootstrap/staging apply -var-file=staging.tfvars
 #   2. Updated the backend block in main.tf with the bootstrap outputs
 
 project_name = "myapp"
-environment  = "release"
-cluster_name = "myapp-release"
+environment  = "staging"
+cluster_name = "myapp-staging"
 aws_region   = "us-east-1"
 
 # Networking
@@ -31,11 +31,11 @@ github_repos = ["my-repo"]
 
 # DNS — get shared_state_bucket from: terraform -chdir=../../bootstrap/shared output
 shared_state_bucket = "myapp-shared-terraform-state"
-dns_records         = ["api.release.myapp.com"]
+dns_records         = ["api.staging.myapp.com"]
 
 # Elastic Cloud
 ec_api_key          = "REPLACE-WITH-YOUR-ELASTIC-CLOUD-API-KEY"
-es_deployment_name  = "myapp-release"
+es_deployment_name  = "myapp-staging"
 es_region           = "us-east-1"
 es_size             = "4g"
 es_zone_count       = 1
@@ -62,8 +62,8 @@ rds_skip_final_snapshot = true
 # Kafka (Confluent Cloud)
 confluent_api_key              = "REPLACE-WITH-CONFLUENT-API-KEY"
 confluent_api_secret           = "REPLACE-WITH-CONFLUENT-API-SECRET"
-kafka_environment_name         = "myapp-release"
-kafka_cluster_name             = "myapp-release-kafka"
+kafka_environment_name         = "myapp-staging"
+kafka_cluster_name             = "myapp-staging-kafka"
 kafka_region                   = "us-east-1"
 kafka_cluster_type             = "basic"
 kafka_app_service_account_name = "app-service-account"

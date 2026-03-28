@@ -1,5 +1,5 @@
 ###############################################################################
-# Bootstrap outputs — use these in environments/release/main.tf backend block
+# Bootstrap outputs — use these in environments/staging/main.tf backend block
 ###############################################################################
 
 output "state_bucket_name" {

@@ -1,15 +1,15 @@
 ###############################################################################
-# Bootstrap — Release Environment
+# Bootstrap — Staging Environment
 #
 # Creates the S3 bucket and DynamoDB table for this environment's remote state.
 # Uses LOCAL state on purpose — this is the bootstrap.
 #
 # Usage:
-#   cp release.tfvars.example release.tfvars
+#   cp staging.tfvars.example staging.tfvars
 #   terraform init
-#   terraform apply -var-file=release.tfvars
+#   terraform apply -var-file=staging.tfvars
 #
-# Then copy the outputs into environments/release/main.tf backend block.
+# Then copy the outputs into environments/staging/main.tf backend block.
 ###############################################################################
 
 terraform {

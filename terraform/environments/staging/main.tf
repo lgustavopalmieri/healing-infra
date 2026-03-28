@@ -1,7 +1,7 @@
 ###############################################################################
 # Backend — values come from the bootstrap output
 #
-# Fill in the actual values from: terraform -chdir=../../bootstrap/release output
+# Fill in the actual values from: terraform -chdir=../../bootstrap/staging output
 # These cannot be variables — Terraform requires literal values in backend blocks.
 ###############################################################################
 
@@ -10,7 +10,7 @@ terraform {
 
   backend "s3" {
     bucket         = "REPLACE-WITH-BOOTSTRAP-OUTPUT-state_bucket_name"
-    key            = "environments/release/terraform.tfstate"
+    key            = "environments/staging/terraform.tfstate"
     region         = "REPLACE-WITH-BOOTSTRAP-OUTPUT-aws_region"
     dynamodb_table = "REPLACE-WITH-BOOTSTRAP-OUTPUT-lock_table_name"
     encrypt        = true

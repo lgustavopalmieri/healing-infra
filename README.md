@@ -20,9 +20,9 @@ Production-grade infrastructure for the Healing platform — built on AWS with T
 
 | Environment | Purpose | DNS | Designed for |
 |---|---|---|---|
-| shared | Route53 hosted zone shared by release and production | Custom domain | Always running |
+| shared | Route53 hosted zone shared by staging and production | Custom domain | Always running |
 | dev | Full stack, lightweight config, no custom DNS | ALB hostname | Spin up / tear down quickly |
-| release | Pre-production / staging | Custom subdomain | Always running |
+| staging | Pre-production / staging | Custom subdomain | Always running |
 | production | Live workloads | Custom domain | Always running |
 
 ## Repository structure
@@ -32,14 +32,13 @@ terraform/
 ├── bootstrap/          # Step 1: state backend (S3 + DynamoDB) — run once per env
 │   ├── shared/
 │   ├── dev/
-│   ├── release/
+│   ├── staging/
 │   └── production/
 ├── environments/       # Step 2/3: actual infrastructure — run after bootstrap
-│   ├── shared/         # Step 2: DNS hosted zone (needed by release + production)
+│   ├── shared/         # Step 2: DNS hosted zone (needed by staging + production)
 │   ├── dev/            # Step 3: EKS + Elastic + Kafka + RDS (no DNS dependency)
-│   ├── release/        # Step 3: EKS + Elastic + Kafka + RDS
-│   └── production/     # Step 3: EKS + Elastic + Kafka + RDS
-└── modules/            # Reusable modules (never applied directly)
+│   ├── staging/         # Pre-production (EKS + Elasticsearch + Kafka + RDS)
+│   └── production/     # Step 3: EKS + Elastic + Kafka + RDS└── modules/            # Reusable modules (never applied directly)
     ├── backend/
     ├── dns/
     ├── eks/
@@ -64,16 +63,16 @@ Step 1: Bootstrap (creates S3 + DynamoDB for remote state)
    ↓
 Step 2: Shared environment (creates the Route53 hosted zone)
    ↓
-Step 3: Service environments (dev, release, production)
+Step 3: Service environments (dev, staging, production)
 ```
 
 - Step 1 must run before anything else — it creates the state backend.
-- Step 2 (shared) is only needed if you want custom DNS (release, production). Dev does not need it.
-- Step 3 environments are independent of each other. You can deploy dev without release or production.
+- Step 2 (shared) is only needed if you want custom DNS (staging, production). Dev does not need it.
+- Step 3 environments are independent of each other. You can deploy dev without staging or production.
 
 > **About the shared environment (Step 2):**
 > The shared environment only creates a Route53 hosted zone for custom DNS (e.g. `healing.com`).
-> It is required only by release and production — they read the `zone_id` from shared's state to create DNS records like `api.healing.com` or `api.release.healing.com`.
+> It is required only by staging and production — they read the `zone_id` from shared's state to create DNS records like `api.healing.com` or `api.staging.healing.com`.
 > **Dev does not need shared at all.** It uses the ALB's AWS-generated hostname directly. If you just want to spin up a dev environment, skip Step 2 entirely and go straight to Step 3.
 
 ### Step 1 — Bootstrap the state backend
@@ -81,7 +80,7 @@ Step 3: Service environments (dev, release, production)
 Each environment needs its own bootstrap. This creates the S3 bucket and DynamoDB table that Terraform uses to store state remotely. You run this once per environment and never touch it again.
 
 ```bash
-# Pick your environment: dev, shared, release, or production
+# Pick your environment: dev, shared, staging, or production
 ENV=dev
 
 cp terraform/bootstrap/$ENV/$ENV.tfvars.example terraform/bootstrap/$ENV/$ENV.tfvars
@@ -99,7 +98,7 @@ terraform -chdir=terraform/bootstrap/$ENV output
 
 ### Step 2 — Deploy the shared environment (DNS)
 
-This step creates the Route53 hosted zone that release and production use for custom domains. Skip this if you only need dev.
+This step creates the Route53 hosted zone that staging and production use for custom domains. Skip this if you only need dev.
 
 ```bash
 # Bootstrap shared first (Step 1 above), then:
@@ -116,7 +115,7 @@ terraform -chdir=terraform/environments/shared apply -var-file=shared.tfvars
 
 After this, point your domain's nameservers (at your registrar) to the Route53 nameservers shown in the output.
 
-### Step 3 — Deploy a service environment (dev, release, or production)
+### Step 3 — Deploy a service environment (dev, staging, or production)
 
 Each service environment provisions the full stack: EKS + Elasticsearch + Kafka + RDS.
 
@@ -136,7 +135,7 @@ terraform -chdir=terraform/environments/$ENV init
 terraform -chdir=terraform/environments/$ENV apply -var-file=$ENV.tfvars
 ```
 
-For release and production: if you want custom DNS, make sure Step 2 (shared) is done first, and set `shared_state_bucket` in your .tfvars to the shared environment's S3 bucket name.
+For staging and production: if you want custom DNS, make sure Step 2 (shared) is done first, and set `shared_state_bucket` in your .tfvars to the shared environment's S3 bucket name.
 
 For dev: no shared dependency needed. The ALB gets an AWS-generated hostname automatically.
 
@@ -148,16 +147,16 @@ ENV=dev
 terraform -chdir=terraform/environments/$ENV destroy -var-file=$ENV.tfvars
 ```
 
-Dev is designed for this — `skip_final_snapshot = true`, `ecr_force_delete = true`, minimal resources. Release and production have safeguards (Multi-AZ, final snapshots) that you should review before destroying.
+Dev is designed for this — `skip_final_snapshot = true`, `ecr_force_delete = true`, minimal resources. Staging and production have safeguards (Multi-AZ, final snapshots) that you should review before destroying.
 
 ### Quick reference — what to deploy for each scenario
 
 | I want to... | Bootstrap | Shared | Environment |
 |---|---|---|---|
 | Test and develop locally | dev | No | dev |
-| Set up staging with custom DNS | shared + release | Yes | release |
+| Set up staging with custom DNS | shared + staging | Yes | staging |
 | Go to production | shared + production | Yes | production |
-| Full stack (all environments) | shared + dev + release + production | Yes | dev, release, production |
+| Full stack (all environments) | shared + dev + staging + production | Yes | dev, staging, production |
 
 ---
 
