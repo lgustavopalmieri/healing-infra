@@ -43,3 +43,8 @@ output "elasticsearch_version" {
   description = "Provisioned Elasticsearch version."
   value       = data.ec_stack.latest.version
 }
+
+output "traffic_filter_id" {
+  description = "PrivateLink traffic filter ID (empty if PrivateLink is not enabled)."
+  value       = var.vpc_endpoint_id != "" ? ec_deployment_traffic_filter.privatelink[0].id : ""
+}

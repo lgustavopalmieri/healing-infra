@@ -194,3 +194,15 @@ variable "es_app_indices" {
   type        = list(string)
   default     = ["*"]
 }
+
+# PrivateLink — Elastic Cloud
+variable "elastic_privatelink_service_name" {
+  description = "AWS VPC Endpoint Service name for Elastic Cloud PrivateLink in the target region. Find yours at: https://www.elastic.co/guide/en/cloud/current/ec-traffic-filtering-vpc.html"
+  type        = string
+}
+
+variable "elastic_privatelink_phz_domain" {
+  description = "Private Hosted Zone domain for Elastic Cloud PrivateLink (e.g. vpce.us-east-1.aws.elastic-cloud.com). Enables automatic DNS resolution from pods to the VPC Endpoint."
+  type        = string
+  default     = ""
+}

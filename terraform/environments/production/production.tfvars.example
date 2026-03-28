@@ -43,6 +43,12 @@ es_kibana_size       = "2g"
 es_app_user_name     = "app_user"
 es_app_user_password = "REPLACE-WITH-STRONG-PASSWORD"
 
+# PrivateLink — Elastic Cloud
+# Service name and PHZ domain for your region. Full list at:
+# https://www.elastic.co/guide/en/cloud/current/ec-traffic-filtering-vpc.html
+elastic_privatelink_service_name = "com.amazonaws.vpce.us-east-1.vpce-svc-0e42e1e06ed010238"
+elastic_privatelink_phz_domain   = "vpce.us-east-1.aws.elastic-cloud.com"
+
 tags = {
   Team = "platform"
 }

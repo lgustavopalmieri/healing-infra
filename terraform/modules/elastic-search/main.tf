@@ -61,3 +61,38 @@ resource "elasticstack_elasticsearch_security_user" "app_user" {
   roles               = [elasticstack_elasticsearch_security_role.app_role.name]
   enabled             = true
 }
+
+###############################################################################
+# PrivateLink Traffic Filter
+#
+# When a VPC Endpoint ID is provided, creates a traffic filter rule that
+# restricts the Elastic Cloud deployment to accept connections only from
+# the specified VPC Endpoint (AWS PrivateLink). This ensures all traffic
+# stays on the AWS backbone and never traverses the public internet.
+#
+# Reference: https://www.elastic.co/guide/en/cloud/current/ec-traffic-filtering-vpc.html
+###############################################################################
+
+locals {
+  enable_privatelink    = var.vpc_endpoint_id != ""
+  privatelink_region    = var.privatelink_region != "" ? var.privatelink_region : var.region
+}
+
+resource "ec_deployment_traffic_filter" "privatelink" {
+  count = local.enable_privatelink ? 1 : 0
+
+  name   = "${local.name_prefix}-privatelink"
+  region = local.privatelink_region
+  type   = "vpce"
+
+  rule {
+    source = var.vpc_endpoint_id
+  }
+}
+
+resource "ec_deployment_traffic_filter_association" "privatelink" {
+  count = local.enable_privatelink ? 1 : 0
+
+  traffic_filter_id = ec_deployment_traffic_filter.privatelink[0].id
+  deployment_id     = ec_deployment.this.id
+}

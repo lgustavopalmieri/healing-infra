@@ -23,5 +23,8 @@ module "elasticsearch" {
   app_user_password_version = var.es_app_user_password_version
   app_indices               = var.es_app_indices
 
+  # PrivateLink — restrict access to only the EKS VPC
+  vpc_endpoint_id = module.elastic_privatelink.vpc_endpoint_id
+
   tags = var.tags
 }

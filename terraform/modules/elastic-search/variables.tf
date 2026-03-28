@@ -113,3 +113,19 @@ variable "app_indices" {
   type        = list(string)
   default     = ["*"]
 }
+
+###############################################################################
+# PrivateLink Traffic Filter
+###############################################################################
+
+variable "vpc_endpoint_id" {
+  description = "AWS VPC Endpoint ID for PrivateLink traffic filter. When set, a traffic filter is created and associated with the deployment, restricting access to only this endpoint."
+  type        = string
+  default     = ""
+}
+
+variable "privatelink_region" {
+  description = "AWS region where the VPC Endpoint lives. Defaults to the deployment region."
+  type        = string
+  default     = ""
+}
