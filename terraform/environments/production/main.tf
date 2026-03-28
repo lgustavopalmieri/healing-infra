@@ -8,6 +8,33 @@
 terraform {
   required_version = ">= 1.5"
 
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 6.0"
+    }
+    helm = {
+      source  = "hashicorp/helm"
+      version = "~> 3.0"
+    }
+    kubernetes = {
+      source  = "hashicorp/kubernetes"
+      version = "~> 2.0"
+    }
+    ec = {
+      source  = "elastic/ec"
+      version = "~> 0.12"
+    }
+    elasticstack = {
+      source  = "elastic/elasticstack"
+      version = "~> 0.11"
+    }
+    confluent = {
+      source  = "confluentinc/confluent"
+      version = "~> 2.0"
+    }
+  }
+
   backend "s3" {
     bucket         = "REPLACE-WITH-BOOTSTRAP-OUTPUT-state_bucket_name"
     key            = "environments/production/terraform.tfstate"

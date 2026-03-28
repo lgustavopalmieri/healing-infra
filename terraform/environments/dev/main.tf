@@ -8,11 +8,38 @@
 terraform {
   required_version = ">= 1.5"
 
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 6.0"
+    }
+    helm = {
+      source  = "hashicorp/helm"
+      version = "~> 3.0"
+    }
+    kubernetes = {
+      source  = "hashicorp/kubernetes"
+      version = "~> 2.0"
+    }
+    ec = {
+      source  = "elastic/ec"
+      version = "~> 0.12"
+    }
+    elasticstack = {
+      source  = "elastic/elasticstack"
+      version = "~> 0.11"
+    }
+    confluent = {
+      source  = "confluentinc/confluent"
+      version = "~> 2.0"
+    }
+  }
+
   backend "s3" {
-    bucket         = "REPLACE-WITH-BOOTSTRAP-OUTPUT-state_bucket_name"
+    bucket         = "healing-dev-dev-terraform-state"
     key            = "environments/dev/terraform.tfstate"
-    region         = "REPLACE-WITH-BOOTSTRAP-OUTPUT-aws_region"
-    dynamodb_table = "REPLACE-WITH-BOOTSTRAP-OUTPUT-lock_table_name"
+    region         = "us-east-1"
+    dynamodb_table = "healing-dev-dev-terraform-locks"
     encrypt        = true
   }
 }

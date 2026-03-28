@@ -118,8 +118,14 @@ variable "app_indices" {
 # PrivateLink Traffic Filter
 ###############################################################################
 
+variable "enable_privatelink" {
+  description = "Whether to create a PrivateLink traffic filter. Use a static boolean so Terraform can evaluate count at plan time."
+  type        = bool
+  default     = false
+}
+
 variable "vpc_endpoint_id" {
-  description = "AWS VPC Endpoint ID for PrivateLink traffic filter. When set, a traffic filter is created and associated with the deployment, restricting access to only this endpoint."
+  description = "AWS VPC Endpoint ID for PrivateLink traffic filter. Required when enable_privatelink is true."
   type        = string
   default     = ""
 }

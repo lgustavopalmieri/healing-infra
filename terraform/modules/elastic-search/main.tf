@@ -74,7 +74,7 @@ resource "elasticstack_elasticsearch_security_user" "app_user" {
 ###############################################################################
 
 locals {
-  enable_privatelink    = var.vpc_endpoint_id != ""
+  enable_privatelink    = var.enable_privatelink
   privatelink_region    = var.privatelink_region != "" ? var.privatelink_region : var.region
 }
 
