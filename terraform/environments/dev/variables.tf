@@ -188,6 +188,13 @@ variable "es_app_indices" {
   default     = ["*"]
 }
 
+# Terraform / CI IP access to Elasticsearch
+variable "es_terraform_allowed_ips" {
+  description = "CIDR blocks allowed to reach Elasticsearch over the public internet (Terraform runner, CI). Example: [\"203.0.113.42/32\"]."
+  type        = list(string)
+  default     = []
+}
+
 # PrivateLink — Elastic Cloud
 variable "elastic_privatelink_service_name" {
   description = "AWS VPC Endpoint Service name for Elastic Cloud PrivateLink."

@@ -135,3 +135,13 @@ variable "privatelink_region" {
   type        = string
   default     = ""
 }
+
+###############################################################################
+# IP-based Traffic Filter (Terraform / CI access)
+###############################################################################
+
+variable "terraform_allowed_ips" {
+  description = "List of CIDR blocks allowed to reach the Elasticsearch API over the public internet (e.g. Terraform runner, CI). When non-empty an 'ip' traffic filter is created alongside the PrivateLink filter."
+  type        = list(string)
+  default     = []
+}

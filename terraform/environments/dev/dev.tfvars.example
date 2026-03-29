@@ -43,6 +43,9 @@ es_kibana_size       = "1g"
 es_app_user_name     = "app_user"
 es_app_user_password = "REPLACE-WITH-STRONG-PASSWORD"
 
+# Allow Terraform / CI to reach Elasticsearch API (your public IP as /32)
+es_terraform_allowed_ips = ["YOUR.PUBLIC.IP/32"]
+
 # PrivateLink — Elastic Cloud
 elastic_privatelink_service_name = "com.amazonaws.vpce.us-east-1.vpce-svc-0e42e1e06ed010238"
 elastic_privatelink_phz_domain   = "vpce.us-east-1.aws.elastic-cloud.com"

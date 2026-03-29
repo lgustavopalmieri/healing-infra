@@ -27,5 +27,8 @@ module "elasticsearch" {
   enable_privatelink = true
   vpc_endpoint_id    = module.elastic_privatelink.vpc_endpoint_id
 
+  # Allow Terraform / CI to reach the Elasticsearch API over the public internet
+  terraform_allowed_ips = var.es_terraform_allowed_ips
+
   tags = var.tags
 }
