@@ -21,18 +21,6 @@ terraform {
       source  = "hashicorp/kubernetes"
       version = "~> 2.0"
     }
-    ec = {
-      source  = "elastic/ec"
-      version = "~> 0.12"
-    }
-    elasticstack = {
-      source  = "elastic/elasticstack"
-      version = "~> 0.11"
-    }
-    confluent = {
-      source  = "confluentinc/confluent"
-      version = "~> 2.0"
-    }
   }
 
   backend "s3" {
@@ -67,23 +55,6 @@ provider "helm" {
     host                   = module.eks.cluster_endpoint
     cluster_ca_certificate = base64decode(module.eks.cluster_certificate_authority_data)
     token                  = data.aws_eks_cluster_auth.this.token
-  }
-}
-
-provider "ec" {
-  apikey = var.ec_api_key
-}
-
-provider "confluent" {
-  cloud_api_key    = var.confluent_api_key
-  cloud_api_secret = var.confluent_api_secret
-}
-
-provider "elasticstack" {
-  elasticsearch {
-    endpoints = [module.elasticsearch.elasticsearch_https_endpoint]
-    username  = module.elasticsearch.elasticsearch_username
-    password  = module.elasticsearch.elasticsearch_password
   }
 }
 

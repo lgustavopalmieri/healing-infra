@@ -129,98 +129,102 @@ variable "dns_records" {
   default     = []
 }
 
-# Elastic Cloud
-variable "ec_api_key" {
-  description = "Elastic Cloud API key."
+###############################################################################
+# OpenSearch
+###############################################################################
+
+variable "opensearch_engine_version" {
+  description = "OpenSearch engine version."
   type        = string
-  sensitive   = true
+  default     = "OpenSearch_2.17"
 }
 
-variable "es_region" {
-  description = "Elastic Cloud deployment region."
+variable "opensearch_instance_type" {
+  description = "Instance type for OpenSearch data nodes."
   type        = string
-  default     = "us-east-1"
+  default     = "r6g.large.search"
 }
 
-variable "es_deployment_name" {
-  description = "Elastic Cloud deployment name."
-  type        = string
-}
-
-variable "es_deployment_template_id" {
-  description = "Elastic Cloud deployment template ID."
-  type        = string
-  default     = "aws-general-purpose"
-}
-
-variable "es_version_regex" {
-  description = "Regex to select Elasticsearch version."
-  type        = string
-  default     = "9\\..*"
-}
-
-variable "es_size" {
-  description = "Elasticsearch hot tier memory size."
-  type        = string
-  default     = "4g"
-}
-
-variable "es_zone_count" {
-  description = "Number of availability zones for Elasticsearch."
+variable "opensearch_instance_count" {
+  description = "Number of OpenSearch data nodes."
   type        = number
-  default     = 1
+  default     = 3
 }
 
-variable "es_kibana_size" {
-  description = "Kibana memory size."
-  type        = string
-  default     = "1g"
-}
-
-variable "es_app_user_name" {
-  description = "Elasticsearch application user name."
-  type        = string
-  default     = "app_user"
-}
-
-variable "es_app_user_password" {
-  description = "Elasticsearch application user password."
-  type        = string
-  sensitive   = true
-}
-
-variable "es_app_user_password_version" {
-  description = "Increment to force password rotation."
+variable "opensearch_ebs_volume_size" {
+  description = "EBS volume size in GiB per data node."
   type        = number
-  default     = 1
+  default     = 100
 }
 
-variable "es_app_indices" {
-  description = "Index patterns the app user can access."
-  type        = list(string)
-  default     = ["*"]
-}
-
-# Terraform / CI IP access to Elasticsearch
-variable "es_terraform_allowed_ips" {
-  description = "CIDR blocks allowed to reach Elasticsearch over the public internet (Terraform runner, CI). Example: [\"203.0.113.42/32\"]."
-  type        = list(string)
-  default     = []
-}
-
-# PrivateLink — Elastic Cloud
-variable "elastic_privatelink_service_name" {
-  description = "AWS VPC Endpoint Service name for Elastic Cloud PrivateLink in the target region. Find yours at: https://www.elastic.co/guide/en/cloud/current/ec-traffic-filtering-vpc.html"
+variable "opensearch_ebs_volume_type" {
+  description = "EBS volume type."
   type        = string
+  default     = "gp3"
 }
 
-variable "elastic_privatelink_phz_domain" {
-  description = "Private Hosted Zone domain for Elastic Cloud PrivateLink (e.g. vpce.us-east-1.aws.elastic-cloud.com). Enables automatic DNS resolution from pods to the VPC Endpoint."
+variable "opensearch_zone_awareness_enabled" {
+  description = "Enable Multi-AZ deployment. Must be true for production."
+  type        = bool
+  default     = true
+}
+
+variable "opensearch_availability_zone_count" {
+  description = "Number of AZs when zone awareness is enabled."
+  type        = number
+  default     = 3
+}
+
+variable "opensearch_dedicated_master_enabled" {
+  description = "Enable dedicated master nodes. Recommended when cluster grows beyond 3 tenants."
+  type        = bool
+  default     = false
+}
+
+variable "opensearch_dedicated_master_type" {
+  description = "Instance type for dedicated master nodes."
   type        = string
-  default     = ""
+  default     = "m6g.large.search"
 }
 
+variable "opensearch_dedicated_master_count" {
+  description = "Number of dedicated master nodes."
+  type        = number
+  default     = 3
+}
+
+variable "opensearch_create_service_linked_role" {
+  description = "Create the OpenSearch service-linked role. Set to false if it already exists in the account (most common)."
+  type        = bool
+  default     = false
+}
+
+###############################################################################
+# SQS / Workload Identity — Healing Specialist
+###############################################################################
+
+variable "sqs_healing_k8s_namespace" {
+  description = "Kubernetes namespace for the healing specialist service."
+  type        = string
+  default     = "healing"
+}
+
+variable "sqs_healing_k8s_service_account" {
+  description = "Kubernetes ServiceAccount for the healing specialist service."
+  type        = string
+  default     = "healing-specialist"
+}
+
+variable "sqs_healing_queue_prefix" {
+  description = "SQS queue name prefix for the healing specialist service."
+  type        = string
+  default     = "specialist"
+}
+
+###############################################################################
 # RDS PostgreSQL
+###############################################################################
+
 variable "rds_db_name" {
   description = "Name of the default database to create."
   type        = string
@@ -265,63 +269,4 @@ variable "rds_skip_final_snapshot" {
   description = "Skip final snapshot on deletion. Set to false in production."
   type        = bool
   default     = true
-}
-
-# Kafka (Confluent Cloud)
-variable "confluent_api_key" {
-  description = "Confluent Cloud API key."
-  type        = string
-  sensitive   = true
-}
-
-variable "confluent_api_secret" {
-  description = "Confluent Cloud API secret."
-  type        = string
-  sensitive   = true
-}
-
-variable "kafka_environment_name" {
-  description = "Confluent Cloud environment display name."
-  type        = string
-}
-
-variable "kafka_cluster_name" {
-  description = "Kafka cluster display name."
-  type        = string
-}
-
-variable "kafka_cloud_provider" {
-  description = "Cloud provider for the Kafka cluster."
-  type        = string
-  default     = "AWS"
-}
-
-variable "kafka_region" {
-  description = "Cloud region for the Kafka cluster."
-  type        = string
-  default     = "us-east-1"
-}
-
-variable "kafka_cluster_type" {
-  description = "Cluster type: basic, standard or dedicated. PrivateLink requires dedicated."
-  type        = string
-  default     = "basic"
-}
-
-variable "kafka_app_service_account_name" {
-  description = "Display name for the Kafka application service account."
-  type        = string
-  default     = "app-service-account"
-}
-
-variable "kafka_app_topic_name" {
-  description = "Name of the default Kafka topic."
-  type        = string
-  default     = "app-events"
-}
-
-variable "kafka_app_topic_partitions" {
-  description = "Number of partitions for the default topic."
-  type        = number
-  default     = 3
 }

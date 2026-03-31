@@ -23,6 +23,11 @@ output "oidc_provider_arn" {
   value       = module.eks.oidc_provider_arn
 }
 
+output "oidc_provider" {
+  description = "EKS OIDC provider URL without https:// prefix (for IRSA trust policy conditions)."
+  value       = module.eks.oidc_provider
+}
+
 # --- VPC ---
 output "vpc_id" {
   description = "VPC ID."

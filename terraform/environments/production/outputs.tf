@@ -26,15 +26,19 @@ output "dns_records" {
   value = module.eks.dns_records
 }
 
-# Elasticsearch
-output "elasticsearch_endpoint" {
-  value = module.elasticsearch.elasticsearch_https_endpoint
+# OpenSearch
+output "opensearch_endpoint" {
+  description = "OpenSearch domain endpoint."
+  value       = module.opensearch.domain_endpoint
 }
 
-output "kibana_endpoint" {
-  value = module.elasticsearch.kibana_https_endpoint
+output "opensearch_dashboard_endpoint" {
+  description = "OpenSearch Dashboards endpoint."
+  value       = module.opensearch.dashboard_endpoint
 }
 
-output "elasticsearch_app_user" {
-  value = module.elasticsearch.app_user_name
+# SQS / Workload Identity
+output "healing_specialist_role_arn" {
+  description = "IAM role ARN for the healing specialist pod (annotate on K8s ServiceAccount)."
+  value       = module.sqs_healing_specialist.iam_role_arn
 }

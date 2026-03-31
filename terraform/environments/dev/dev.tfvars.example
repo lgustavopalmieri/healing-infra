@@ -1,17 +1,19 @@
-# Copy this file to dev.tfvars and fill in the values.
+# Copy this file to terraform.tfvars and fill in the values.
 # NEVER commit the actual .tfvars file — it is already in .gitignore.
 #
 # Dev environment — mirrors production stack but with lightweight config.
 # No custom DNS — access the ALB via the AWS-generated hostname.
 # Designed for fast spin-up and teardown (terraform destroy).
 #
-# Before applying:
-#   1. Bootstrap: terraform -chdir=../../bootstrap/dev apply -var-file=dev.tfvars
-#   2. Update the backend block in main.tf with bootstrap outputs
+# Before applying, bootstrap the state backend:
+#   cd ../../bootstrap/dev
+#   terraform init
+#   terraform apply -var-file=dev.tfvars
+#   # Copy outputs into environments/dev/main.tf backend block (if not done already)
 
-project_name = "myapp"
+project_name = "healing"
 environment  = "dev"
-cluster_name = "myapp-dev"
+cluster_name = "healing-dev"
 aws_region   = "us-east-1"
 
 # Networking — single NAT to save cost
@@ -26,29 +28,26 @@ node_max_size       = 3
 node_desired_size   = 1
 
 # ECR — force delete for easy teardown
-ecr_repository_name = "my-app"
+ecr_repository_name = "REPLACE-WITH-YOUR-ECR-REPO"
 ecr_force_delete    = true
 
 # GitHub OIDC
-github_org   = "my-github-org"
-github_repos = ["my-repo"]
+github_org   = "REPLACE-WITH-YOUR-GITHUB-ORG"
+github_repos = ["REPLACE-WITH-YOUR-REPO"]
 
-# Elastic Cloud — smallest sizes
-ec_api_key           = "REPLACE-WITH-YOUR-ELASTIC-CLOUD-API-KEY"
-es_deployment_name   = "myapp-dev"
-es_region            = "us-east-1"
-es_size              = "1g"
-es_zone_count        = 1
-es_kibana_size       = "1g"
-es_app_user_name     = "app_user"
-es_app_user_password = "REPLACE-WITH-STRONG-PASSWORD"
+# OpenSearch — single small node
+opensearch_engine_version             = "OpenSearch_2.17"
+opensearch_instance_type              = "t3.small.search"
+opensearch_instance_count             = 1
+opensearch_ebs_volume_size            = 20
+opensearch_zone_awareness_enabled     = false
+opensearch_dedicated_master_enabled   = false
+opensearch_create_service_linked_role = false  # set to true ONLY if the SLR doesn't exist yet in your account
 
-# Allow Terraform / CI to reach Elasticsearch API (your public IP as /32)
-es_terraform_allowed_ips = ["YOUR.PUBLIC.IP/32"]
-
-# PrivateLink — Elastic Cloud
-elastic_privatelink_service_name = "com.amazonaws.vpce.us-east-1.vpce-svc-0e42e1e06ed010238"
-elastic_privatelink_phz_domain   = "vpce.us-east-1.aws.elastic-cloud.com"
+# SQS / Workload Identity — Healing Specialist
+sqs_healing_k8s_namespace       = "healing"
+sqs_healing_k8s_service_account = "healing-specialist"
+sqs_healing_queue_prefix        = "specialist"
 
 # RDS PostgreSQL — smallest, no HA, skip snapshot for easy destroy
 rds_db_name             = "healing_specialist_db"
@@ -59,17 +58,6 @@ rds_instance_class      = "db.t3.micro"
 rds_allocated_storage   = 10
 rds_multi_az            = false
 rds_skip_final_snapshot = true
-
-# Kafka (Confluent Cloud) — basic cluster
-confluent_api_key              = "REPLACE-WITH-CONFLUENT-API-KEY"
-confluent_api_secret           = "REPLACE-WITH-CONFLUENT-API-SECRET"
-kafka_environment_name         = "myapp-dev"
-kafka_cluster_name             = "myapp-dev-kafka"
-kafka_region                   = "us-east-1"
-kafka_cluster_type             = "basic"
-kafka_app_service_account_name = "app-service-account"
-kafka_app_topic_name           = "app-events"
-kafka_app_topic_partitions     = 1
 
 tags = {
   Team = "platform"

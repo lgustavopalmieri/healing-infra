@@ -14,7 +14,7 @@
 ###############################################################################
 
 locals {
-  name_prefix = "${var.project_name}-${var.environment}"
+  name_prefix   = "${var.project_name}-${var.environment}"
   resource_name = "${local.name_prefix}-${var.service_label}-pl"
 
   create_phz = var.private_hosted_zone_domain != ""

@@ -18,13 +18,13 @@ module "rds_postgres" {
   vpc_cidr   = var.vpc_cidr
 
   # RDS
-  db_name           = var.rds_db_name
-  username          = var.rds_username
-  password          = var.rds_password
-  engine_version    = var.rds_engine_version
-  instance_class    = var.rds_instance_class
-  allocated_storage = var.rds_allocated_storage
-  multi_az          = var.rds_multi_az
+  db_name             = var.rds_db_name
+  username            = var.rds_username
+  password            = var.rds_password
+  engine_version      = var.rds_engine_version
+  instance_class      = var.rds_instance_class
+  allocated_storage   = var.rds_allocated_storage
+  multi_az            = var.rds_multi_az
   skip_final_snapshot = var.rds_skip_final_snapshot
 
   tags = var.tags

@@ -12,17 +12,17 @@ terraform/
 │   ├── production/
 │   └── shared/
 ├── environments/           # Root modules — one per environment
-│   ├── dev/                # EKS + Elasticsearch (PrivateLink) + Kafka + RDS — lightweight, no custom DNS, easy teardown
-│   ├── production/         # EKS + Elasticsearch (PrivateLink) + Kafka + RDS PostgreSQL
-│   ├── staging/            # EKS + Elasticsearch (PrivateLink) + Kafka + RDS PostgreSQL
+│   ├── dev/                # EKS + OpenSearch (VPC) + SQS (IAM) + RDS — lightweight, no custom DNS, easy teardown
+│   ├── production/         # EKS + OpenSearch (VPC, Multi-AZ) + SQS (IAM) + RDS PostgreSQL
+│   ├── staging/            # EKS + OpenSearch (VPC) + SQS (IAM) + RDS PostgreSQL
 │   └── shared/             # DNS only (Route53 hosted zone)
 └── modules/                # Reusable modules consumed by environments
     ├── backend/            # S3 bucket + DynamoDB lock table
     ├── dns/                # Route53 hosted zone
     ├── eks/                # VPC + EKS + ECR + ALB Controller + GitHub OIDC + DNS records
-    ├── elastic-search/     # Elastic Cloud deployment + app user RBAC + PrivateLink traffic filter
+    ├── opensearch/         # AWS OpenSearch domain (VPC-based) + IAM auth + Security Group
     ├── privatelink/        # Generic VPC Interface Endpoint + SG + Private Hosted Zone (reusable for any service)
-    ├── kafka/              # Confluent Cloud Kafka cluster + service account + ACLs + topic
+    ├── sqs/                # IRSA pod role + SQS IAM policy (prefix-restricted) + OpenSearch IAM policy (index-restricted)
     └── rds-postgres/       # RDS PostgreSQL in EKS VPC private subnets
 
 k8s/                        # Kubernetes manifests (GitOps)
@@ -39,6 +39,8 @@ k8s/                        # Kubernetes manifests (GitOps)
 | `locals.tf` | Computed locals (`name_prefix`, `common_tags`, `azs`) |
 | `providers.tf` | `required_providers` block (modules only) |
 | `versions.tf` | Alternative name for `providers.tf` in some modules |
+| `opensearch.tf` | OpenSearch module call (in environment roots) |
+| `sqs.tf` | SQS workload identity module calls (in environment roots) |
 | `*.tfvars.example` | Example variable files — copy and fill, never commit actual `.tfvars` |
 
 ## Naming patterns
@@ -46,6 +48,9 @@ k8s/                        # Kubernetes manifests (GitOps)
 - Resource name prefix: `{project_name}-{environment}` (e.g. `myapp-staging`)
 - All resources tagged with: `Project`, `Environment`, `ManagedBy = "terraform"`
 - Bootstrap resources use `ManagedBy = "terraform-bootstrap"`
+- IRSA pod roles: `{project}-{env}-{service}-pod-role` (e.g. `healing-dev-specialist-pod-role`)
+- SQS queue prefix restriction: `{service}-*` (e.g. `specialist-*`)
+- OpenSearch index prefix restriction: `{index_prefix}-*` (e.g. `healing-*`)
 
 ## State architecture
 
@@ -56,3 +61,7 @@ k8s/                        # Kubernetes manifests (GitOps)
 ## Cross-environment data flow
 
 `shared` environment → exposes `zone_id` output → consumed by `staging`/`production` via `terraform_remote_state` or direct `zone_id` variable override
+
+## Deployment
+
+Single `terraform apply` per environment — no phased applies, no `-target` flags needed. Everything deploys in one shot.
