@@ -1,16 +1,21 @@
-# Copy this file to staging.tfvars and fill in the values.
+# Copy this file to terraform.tfvars and fill in the values.
 # NEVER commit the actual .tfvars file — it is already in .gitignore.
 #
-# Before applying this environment, make sure you have:
-#   1. Applied the bootstrap: terraform -chdir=../../bootstrap/staging apply -var-file=staging.tfvars
-#   2. Updated the backend block in main.tf with the bootstrap outputs
+# Staging environment — mirrors production but with smaller instances.
+# Includes custom DNS via shared Route53 hosted zone.
+#
+# Before applying, bootstrap the state backend:
+#   cd ../../bootstrap/staging
+#   terraform init
+#   terraform apply -var-file=staging.tfvars
+#   # Copy outputs into environments/staging/main.tf backend block
 
-project_name = "myapp"
+project_name = "healing"
 environment  = "staging"
-cluster_name = "myapp-staging"
+cluster_name = "healing-staging"
 aws_region   = "us-east-1"
 
-# Networking
+# Networking — single NAT to save cost in staging
 vpc_cidr           = "10.0.0.0/16"
 single_nat_gateway = true
 
@@ -22,56 +27,40 @@ node_max_size       = 6
 node_desired_size   = 3
 
 # ECR
-ecr_repository_name = "my-app"
+ecr_repository_name = "REPLACE-WITH-YOUR-ECR-REPO"
 ecr_force_delete    = true
 
 # GitHub OIDC
-github_org   = "my-github-org"
-github_repos = ["my-repo"]
+github_org   = "REPLACE-WITH-YOUR-GITHUB-ORG"
+github_repos = ["REPLACE-WITH-YOUR-REPO"]
 
 # DNS — get shared_state_bucket from: terraform -chdir=../../bootstrap/shared output
-shared_state_bucket = "myapp-shared-terraform-state"
-dns_records         = ["api.staging.myapp.com"]
+shared_state_bucket = "REPLACE-WITH-SHARED-STATE-BUCKET"
+dns_records         = ["api.staging.example.com"]
 
-# Elastic Cloud
-ec_api_key          = "REPLACE-WITH-YOUR-ELASTIC-CLOUD-API-KEY"
-es_deployment_name  = "myapp-staging"
-es_region           = "us-east-1"
-es_size             = "4g"
-es_zone_count       = 1
-es_kibana_size      = "1g"
-es_app_user_name    = "app_user"
-es_app_user_password = "REPLACE-WITH-STRONG-PASSWORD"
+# OpenSearch — 2 nodes, medium instances
+opensearch_engine_version             = "OpenSearch_2.17"
+opensearch_instance_type              = "t3.medium.search"
+opensearch_instance_count             = 2
+opensearch_ebs_volume_size            = 50
+opensearch_zone_awareness_enabled     = false
+opensearch_dedicated_master_enabled   = false
+opensearch_create_service_linked_role = false  # set to true ONLY if the SLR doesn't exist yet in your account
 
-# Allow Terraform / CI to reach Elasticsearch API (your public IP as /32 or /128)
-es_terraform_allowed_ips = ["YOUR.PUBLIC.IP/32"]
+# SQS / Workload Identity — Healing Specialist
+sqs_healing_k8s_namespace       = "healing"
+sqs_healing_k8s_service_account = "healing-specialist"
+sqs_healing_queue_prefix        = "specialist"
 
-# PrivateLink — Elastic Cloud
-# Service name and PHZ domain for your region. Full list at:
-# https://www.elastic.co/guide/en/cloud/current/ec-traffic-filtering-vpc.html
-elastic_privatelink_service_name = "com.amazonaws.vpce.us-east-1.vpce-svc-0e42e1e06ed010238"
-elastic_privatelink_phz_domain   = "vpce.us-east-1.aws.elastic-cloud.com"
-
-# RDS PostgreSQL
-rds_db_name           = "healing_specialist_db"
-rds_username          = "REPLACE-WITH-DB-USERNAME"
-rds_password          = "REPLACE-WITH-STRONG-PASSWORD"
-rds_engine_version    = "17"
-rds_instance_class    = "db.t3.micro"
-rds_allocated_storage = 10
-rds_multi_az          = false
+# RDS PostgreSQL — staging sizes, no HA, skip snapshot
+rds_db_name             = "healing_specialist_db"
+rds_username            = "REPLACE-WITH-DB-USERNAME"
+rds_password            = "REPLACE-WITH-STRONG-PASSWORD"
+rds_engine_version      = "17"
+rds_instance_class      = "db.t3.micro"
+rds_allocated_storage   = 10
+rds_multi_az            = false
 rds_skip_final_snapshot = true
-
-# Kafka (Confluent Cloud)
-confluent_api_key              = "REPLACE-WITH-CONFLUENT-API-KEY"
-confluent_api_secret           = "REPLACE-WITH-CONFLUENT-API-SECRET"
-kafka_environment_name         = "myapp-staging"
-kafka_cluster_name             = "myapp-staging-kafka"
-kafka_region                   = "us-east-1"
-kafka_cluster_type             = "basic"
-kafka_app_service_account_name = "app-service-account"
-kafka_app_topic_name           = "app-events"
-kafka_app_topic_partitions     = 3
 
 tags = {
   Team = "platform"

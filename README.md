@@ -4,17 +4,26 @@ Production-grade infrastructure for the Healing platform — built on AWS with T
 
 ## What gets provisioned
 
-| Layer | Resources | Connectivity |
-|---|---|---|
-| Networking | VPC, public/private subnets, NAT Gateway | — |
-| Compute | EKS (managed node groups) + ALB Ingress Controller | — |
-| Container Registry | ECR with GitHub Actions OIDC (keyless push) | — |
-| DNS | Route53 hosted zone + ALB alias records | — |
-| Search | Elastic Cloud (Elasticsearch + Kibana) with per-app RBAC | AWS PrivateLink |
-| Messaging | Confluent Cloud Kafka with service accounts + ACLs | Public (TLS/SASL); PrivateLink when dedicated |
-| Database | RDS PostgreSQL | VPC private subnets (not publicly accessible) |
-| PrivateLink | Generic reusable module for VPC Endpoints + PHZ | — |
-| State backend | S3 + DynamoDB (locking) per environment | — |
+| Layer | Resources |
+|---|---|
+| Networking | VPC, public/private subnets, NAT Gateway |
+| Compute | EKS (managed node groups) + ALB Ingress Controller |
+| Container Registry | ECR with GitHub Actions OIDC (keyless push) |
+| DNS | Route53 hosted zone + ALB alias records |
+| Search | AWS OpenSearch (VPC-based, IAM auth, index-level isolation) |
+| Messaging | SQS via IRSA (pods create their own queues, prefix-restricted IAM) |
+| Database | RDS PostgreSQL (VPC private subnets, not publicly accessible) |
+| State backend | S3 + DynamoDB (locking) per environment |
+
+## Multi-tenant index isolation
+
+OpenSearch uses IAM-based index isolation — no FGAC provider needed:
+
+1. **Network**: VPC Security Group allows only traffic from within the VPC on port 443
+2. **Domain policy**: Open within VPC (SG is the network boundary)
+3. **IAM policies**: Each pod's IAM role restricts access to specific index patterns via ARN (e.g. `healing-*`)
+
+Each new service gets its own SQS module with a unique `opensearch_index_prefix`, guaranteeing it can only access its own indices.
 
 ## Environments
 
@@ -22,8 +31,8 @@ Production-grade infrastructure for the Healing platform — built on AWS with T
 |---|---|---|---|
 | shared | Route53 hosted zone shared by staging and production | Custom domain | Always running |
 | dev | Full stack, lightweight config, no custom DNS | ALB hostname | Spin up / tear down quickly |
-| staging | Pre-production / staging | Custom subdomain | Always running |
-| production | Live workloads | Custom domain | Always running |
+| staging | Pre-production | Custom subdomain | Always running |
+| production | Live workloads (Multi-AZ OpenSearch, Multi-AZ RDS) | Custom domain | Always running |
 
 ## Repository structure
 
@@ -34,18 +43,19 @@ terraform/
 │   ├── dev/
 │   ├── staging/
 │   └── production/
-├── environments/       # Step 2/3: actual infrastructure — run after bootstrap
+├── environments/       # Step 2/3: actual infrastructure
 │   ├── shared/         # Step 2: DNS hosted zone (needed by staging + production)
-│   ├── dev/            # Step 3: EKS + Elastic + Kafka + RDS (no DNS dependency)
-│   ├── staging/         # Pre-production (EKS + Elasticsearch + Kafka + RDS)
-│   └── production/     # Step 3: EKS + Elastic + Kafka + RDS└── modules/            # Reusable modules (never applied directly)
-    ├── backend/
-    ├── dns/
-    ├── eks/
-    ├── elastic-search/
-    ├── privatelink/
-    ├── kafka/
-    └── rds-postgres/
+│   ├── dev/            # Step 3: EKS + OpenSearch + SQS IAM + RDS (no DNS dependency)
+│   ├── staging/        # Step 3: EKS + OpenSearch + SQS IAM + RDS
+│   └── production/     # Step 3: EKS + OpenSearch (Multi-AZ) + SQS IAM + RDS
+└── modules/            # Reusable modules (never applied directly)
+    ├── backend/        # S3 bucket + DynamoDB lock table
+    ├── dns/            # Route53 hosted zone
+    ├── eks/            # VPC + EKS + ECR + ALB Controller + GitHub OIDC
+    ├── opensearch/     # AWS OpenSearch domain (VPC-based) + IAM auth + SG
+    ├── sqs/            # IRSA pod role + SQS IAM policy + OpenSearch IAM policy (index-restricted)
+    ├── rds-postgres/   # RDS PostgreSQL in EKS VPC private subnets
+    └── privatelink/    # Generic VPC Interface Endpoint + SG + Private Hosted Zone
 
 k8s/                    # Kubernetes manifests (GitOps)
 ```
@@ -117,7 +127,7 @@ After this, point your domain's nameservers (at your registrar) to the Route53 n
 
 ### Step 3 — Deploy a service environment (dev, staging, or production)
 
-Each service environment provisions the full stack: EKS + Elasticsearch + Kafka + RDS.
+Each service environment provisions the full stack in a **single `terraform apply`** — no phases, no targets.
 
 ```bash
 # Pick your environment
@@ -125,26 +135,32 @@ ENV=dev
 
 # Make sure you ran Step 1 (bootstrap) for this environment first
 
-cp terraform/environments/$ENV/$ENV.tfvars.example terraform/environments/$ENV/$ENV.tfvars
-# Edit the .tfvars file — fill in API keys, passwords, and config
+cp terraform/environments/$ENV/$ENV.tfvars.example terraform/environments/$ENV/terraform.tfvars
+# Edit terraform.tfvars — fill in ECR repo name, GitHub org, passwords, etc.
 
 # Update the backend block in terraform/environments/$ENV/main.tf
 # with the outputs from Step 1 (bucket name, region, DynamoDB table)
 
 terraform -chdir=terraform/environments/$ENV init
-terraform -chdir=terraform/environments/$ENV apply -var-file=$ENV.tfvars
+terraform -chdir=terraform/environments/$ENV apply
 ```
 
-For staging and production: if you want custom DNS, make sure Step 2 (shared) is done first, and set `shared_state_bucket` in your .tfvars to the shared environment's S3 bucket name.
+For staging and production: if you want custom DNS, make sure Step 2 (shared) is done first, and set `shared_state_bucket` in your tfvars to the shared environment's S3 bucket name.
 
 For dev: no shared dependency needed. The ALB gets an AWS-generated hostname automatically.
+
+> **Timing**: First apply takes ~25 minutes (EKS ~10 min + OpenSearch ~15 min, in parallel). Subsequent applies are incremental and fast.
+
+### Get all outputs
+
+```bash
+terraform -chdir=terraform/environments/$ENV output -json
+```
 
 ### Tearing down an environment
 
 ```bash
-ENV=dev
-
-terraform -chdir=terraform/environments/$ENV destroy -var-file=$ENV.tfvars
+terraform -chdir=terraform/environments/$ENV destroy
 ```
 
 Dev is designed for this — `skip_final_snapshot = true`, `ecr_force_delete = true`, minimal resources. Staging and production have safeguards (Multi-AZ, final snapshots) that you should review before destroying.
@@ -160,22 +176,57 @@ Dev is designed for this — `skip_final_snapshot = true`, `ecr_force_delete = t
 
 ---
 
+## Connecting your application
+
+After deploy, create a Kubernetes ServiceAccount with IRSA to give your pod access to SQS and OpenSearch:
+
+```yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: healing-specialist
+  namespace: healing
+  annotations:
+    eks.amazonaws.com/role-arn: "<healing_specialist_role_arn from terraform output>"
+```
+
+Then reference it in your Deployment:
+
+```yaml
+spec:
+  template:
+    spec:
+      serviceAccountName: healing-specialist
+```
+
+The AWS SDK automatically picks up IRSA credentials. No access keys needed.
+
+**What the pod can do:**
+- **SQS**: Create/manage/send/receive queues matching `specialist-*`
+- **OpenSearch**: HTTP access restricted to `healing-*` indices only
+- **Cluster-level**: Read-only cluster health checks
+
+---
+
 ## Tech stack
 
 - Terraform >= 1.5
 - AWS Provider ~> 6.0 | Helm ~> 3.0 | Kubernetes ~> 2.0
-- Elastic Cloud (ec ~> 0.12, elasticstack ~> 0.11)
-- Confluent Cloud (confluentinc/confluent ~> 2.0)
 - Community modules: `terraform-aws-modules/eks/aws`, `vpc/aws`, `iam/aws`
 
 ## Conventions
 
-- Naming: `{project}-{environment}` (e.g. `myapp-dev`)
+- Naming: `{project}-{environment}` (e.g. `healing-dev`)
 - Required tags: `Project`, `Environment`, `ManagedBy`
 - Sensitive values are never committed — `.tfvars` is in `.gitignore`
 - Remote state with encryption enabled and DynamoDB locking
-- External services use AWS PrivateLink when supported by the provider
+- All services (OpenSearch, RDS) deployed inside the EKS VPC for low-latency communication
 
 ## GitOps
 
 Kubernetes manifests live in `k8s/` and represent the desired state of applications in the cluster. Changes merged to the main branch are automatically reconciled.
+
+## Detailed guides
+
+- [Dev environment deployment guide](docs/dev-deployment-guide.md) — step-by-step with troubleshooting
+- [Dev environment destroy guide](docs/dev-destroy-guide.md) — safe teardown without orphaned resources

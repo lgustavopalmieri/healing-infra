@@ -1,0 +1,211 @@
+# Dev Environment — Destroy Guide
+
+Step-by-step guide to completely destroy the `dev` environment without orphaned resources. Follow every step in order.
+
+---
+
+## Prerequisites
+
+- AWS CLI v2 configured (`aws sts get-caller-identity` works)
+- kubectl configured for the cluster (`kubectl get nodes` works)
+- Terraform initialized in `terraform/environments/dev`
+
+---
+
+## Step 1 — Delete Kubernetes Ingress resources
+
+The AWS Load Balancer Controller creates ALBs, Target Groups, and Security Groups **outside of Terraform**. If you skip this step, those resources will be orphaned and block the VPC deletion.
+
+```bash
+kubectl delete ingress --all -n healing
+```
+
+Verify the ALB is being deprovisioned:
+
+```bash
+aws elbv2 describe-load-balancers \
+  --query 'LoadBalancers[?contains(LoadBalancerName, `healing`)].{Name:LoadBalancerName,State:State.Code}' \
+  --output table
+```
+
+Wait until the table is empty (ALB fully deleted). This takes ~30-60 seconds.
+
+```bash
+echo "Waiting 60s for ALB cleanup..."
+sleep 60
+```
+
+Verify it's gone:
+
+```bash
+aws elbv2 describe-load-balancers \
+  --query 'LoadBalancers[?contains(LoadBalancerName, `healing`)].LoadBalancerName' \
+  --output text
+```
+
+Expected: empty output (no ALBs remaining).
+
+---
+
+## Step 2 — Delete remaining Kubernetes workloads
+
+Delete all workloads so the controller has time to clean up any remaining cloud resources (NLBs, target groups, etc.) before the cluster goes away.
+
+```bash
+kubectl delete all --all -n healing
+kubectl delete sa --all -n healing
+kubectl delete namespace healing
+```
+
+Wait a few seconds for cleanup:
+
+```bash
+sleep 10
+```
+
+---
+
+## Step 3 — Terraform destroy
+
+```bash
+cd terraform/environments/dev
+terraform destroy
+```
+
+Type `yes` when prompted. This takes ~15-20 minutes.
+
+---
+
+## Step 4 — Verify no orphaned resources
+
+After destroy completes, verify nothing was left behind:
+
+```bash
+# Check for orphaned ALBs
+echo "=== Orphaned ALBs ==="
+aws elbv2 describe-load-balancers \
+  --query 'LoadBalancers[?contains(LoadBalancerName, `healing`) || contains(LoadBalancerName, `k8s-`)].{Name:LoadBalancerName,VPC:VpcId}' \
+  --output table
+
+# Check for orphaned Target Groups
+echo ""
+echo "=== Orphaned Target Groups ==="
+aws elbv2 describe-target-groups \
+  --query 'TargetGroups[?contains(TargetGroupName, `k8s-healing`)].{Name:TargetGroupName,ARN:TargetGroupArn}' \
+  --output table
+
+# Check for orphaned Security Groups (k8s- prefix)
+echo ""
+echo "=== Orphaned Security Groups ==="
+aws ec2 describe-security-groups \
+  --filters "Name=group-name,Values=k8s-*" \
+  --query 'SecurityGroups[].{ID:GroupId,Name:GroupName,VPC:VpcId}' \
+  --output table
+
+# Check for orphaned EIPs
+echo ""
+echo "=== Unattached Elastic IPs ==="
+aws ec2 describe-addresses \
+  --query 'Addresses[?AssociationId==null].{AllocationId:AllocationId,PublicIp:PublicIp}' \
+  --output table
+```
+
+**Expected**: All sections should show empty tables. If anything shows up, proceed to Step 5.
+
+---
+
+## Step 5 — Clean up orphaned resources (only if Step 4 found something)
+
+If Step 4 found orphaned resources, run these commands to clean them up. Skip any section that was already clean.
+
+### 5.1 — Delete orphaned ALBs
+
+```bash
+# List and delete each ALB
+for ARN in $(aws elbv2 describe-load-balancers --query 'LoadBalancers[?contains(LoadBalancerName, `k8s-`)].LoadBalancerArn' --output text); do
+  echo "Deleting listeners for $ARN..."
+  for LISTENER in $(aws elbv2 describe-listeners --load-balancer-arn "$ARN" --query 'Listeners[].ListenerArn' --output text); do
+    aws elbv2 delete-listener --listener-arn "$LISTENER"
+  done
+  echo "Deleting ALB $ARN..."
+  aws elbv2 delete-load-balancer --load-balancer-arn "$ARN"
+done
+
+echo "Waiting 60s for ENIs to release..."
+sleep 60
+```
+
+### 5.2 — Delete orphaned Target Groups
+
+```bash
+for ARN in $(aws elbv2 describe-target-groups --query 'TargetGroups[?contains(TargetGroupName, `k8s-healing`)].TargetGroupArn' --output text); do
+  echo "Deleting target group $ARN..."
+  aws elbv2 delete-target-group --target-group-arn "$ARN"
+done
+```
+
+### 5.3 — Delete orphaned Security Groups
+
+```bash
+for SG in $(aws ec2 describe-security-groups --filters "Name=group-name,Values=k8s-*" --query 'SecurityGroups[].GroupId' --output text); do
+  echo "Deleting security group $SG..."
+  aws ec2 delete-security-group --group-id "$SG"
+done
+```
+
+### 5.4 — Release orphaned Elastic IPs
+
+```bash
+for ALLOC in $(aws ec2 describe-addresses --query 'Addresses[?AssociationId==null].AllocationId' --output text); do
+  echo "Releasing EIP $ALLOC..."
+  aws ec2 release-address --allocation-id "$ALLOC"
+done
+```
+
+### 5.5 — Re-run terraform destroy
+
+If orphaned resources were blocking the VPC:
+
+```bash
+cd terraform/environments/dev
+terraform destroy
+```
+
+---
+
+## Step 6 — Destroy the state backend (optional)
+
+Only do this if you will never need the state again.
+
+```bash
+cd terraform/bootstrap/dev
+terraform destroy -var-file=dev.tfvars
+```
+
+---
+
+## Quick Reference — Complete Destroy Flow
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  Step 1: Delete Kubernetes Ingress                          │
+│    kubectl delete ingress --all -n healing                  │
+│    sleep 60                                                 │
+├─────────────────────────────────────────────────────────────┤
+│  Step 2: Delete remaining workloads                         │
+│    kubectl delete all --all -n healing                      │
+│    kubectl delete namespace healing                         │
+├─────────────────────────────────────────────────────────────┤
+│  Step 3: Terraform destroy (~15 min)                        │
+│    cd terraform/environments/dev                            │
+│    terraform destroy                                        │
+├─────────────────────────────────────────────────────────────┤
+│  Step 4: Verify — check for orphaned ALBs, SGs, EIPs       │
+├─────────────────────────────────────────────────────────────┤
+│  Step 5: Clean up orphans (only if Step 4 found something)  │
+├─────────────────────────────────────────────────────────────┤
+│  Step 6: Destroy bootstrap (optional)                       │
+│    cd terraform/bootstrap/dev                               │
+│    terraform destroy -var-file=dev.tfvars                   │
+└─────────────────────────────────────────────────────────────┘
+```

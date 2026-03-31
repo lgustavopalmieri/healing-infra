@@ -364,24 +364,18 @@ kubectl get nodes
 
 ## 11. Teardown (Destroy)
 
-To completely destroy the dev environment:
+See the full destroy guide: **[dev-destroy-guide.md](dev-destroy-guide.md)**
+
+The critical step: **delete Kubernetes Ingress resources before running `terraform destroy`**, otherwise the ALB and Security Groups created by the Load Balancer Controller will be orphaned and block VPC deletion.
+
+Quick version:
 
 ```bash
+kubectl delete ingress --all -n healing
+sleep 60
 cd terraform/environments/dev
-
-# Destroy everything (takes ~15-20 minutes)
 terraform destroy
 ```
-
-Type `yes` when prompted.
-
-**After destroy, to also clean up the state backend (optional):**
-```bash
-cd ../../bootstrap/dev
-terraform destroy -var-file=dev.tfvars
-```
-
-> **Warning:** Destroying the bootstrap deletes the state bucket. Only do this if you will never need the state again.
 
 ---
 
