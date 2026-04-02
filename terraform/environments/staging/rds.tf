@@ -27,5 +27,14 @@ module "rds_postgres" {
   multi_az            = var.rds_multi_az
   skip_final_snapshot = var.rds_skip_final_snapshot
 
+  # RDS Proxy
+  enable_proxy                       = var.rds_enable_proxy
+  proxy_idle_client_timeout          = var.rds_proxy_idle_client_timeout
+  proxy_require_tls                  = var.rds_proxy_require_tls
+  proxy_max_connections_percent      = var.rds_proxy_max_connections_percent
+  proxy_max_idle_connections_percent = var.rds_proxy_max_idle_connections_percent
+  proxy_connection_borrow_timeout    = var.rds_proxy_connection_borrow_timeout
+  proxy_debug_logging                = var.rds_proxy_debug_logging
+
   tags = var.tags
 }

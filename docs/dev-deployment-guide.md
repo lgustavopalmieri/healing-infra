@@ -33,7 +33,7 @@ Install these tools before starting:
 
 **AWS Account requirements:**
 - An AWS account with admin or power-user access
-- The ability to create IAM roles, VPCs, EKS clusters, OpenSearch domains, RDS instances, and SQS queues
+- The ability to create IAM roles, VPCs, EKS clusters, OpenSearch domains, RDS instances, RDS Proxies, Secrets Manager secrets, and SQS queues
 
 ---
 
@@ -165,15 +165,24 @@ sqs_healing_k8s_namespace       = "healing"
 sqs_healing_k8s_service_account = "healing-specialist"
 sqs_healing_queue_prefix        = "specialist"
 
-# RDS PostgreSQL
+# RDS PostgreSQL — scaled for load testing
 rds_db_name             = "healing_specialist_db"
 rds_username            = "healing_admin"
 rds_password            = "YourStrongPassword123!"  # change this!
 rds_engine_version      = "17"
-rds_instance_class      = "db.t3.micro"
-rds_allocated_storage   = 10
+rds_instance_class      = "db.t3.small"
+rds_allocated_storage   = 20
 rds_multi_az            = false
 rds_skip_final_snapshot = true
+
+# RDS Proxy — connection pooling for high-throughput workloads
+rds_enable_proxy                       = true
+rds_proxy_idle_client_timeout          = 1800
+rds_proxy_require_tls                  = true
+rds_proxy_max_connections_percent      = 100
+rds_proxy_max_idle_connections_percent = 50
+rds_proxy_connection_borrow_timeout    = 120
+rds_proxy_debug_logging                = true
 
 tags = {
   Team = "platform"
@@ -184,6 +193,7 @@ tags = {
 - [ ] `github_org` is your real GitHub org/user
 - [ ] `github_repos` lists the repo(s) that push images
 - [ ] `rds_password` is a strong password (min 8 chars, mixed case, numbers)
+- [ ] `rds_enable_proxy` is set to `true` if you want connection pooling via RDS Proxy
 - [ ] `opensearch_create_service_linked_role` is correct (see below)
 - [ ] No `REPLACE-*` placeholders remain
 
@@ -224,9 +234,11 @@ terraform plan
 
 Review the plan. You should see approximately:
 - ~20 resources from `module.eks` (VPC, subnets, NAT, EKS cluster, node group, ECR, IAM roles...)
-- ~5 resources from `module.rds_postgres` (subnet group, SG, instance)
+- ~12 resources from `module.rds_postgres` (subnet group, SG, instance + proxy, proxy SG, proxy target group, proxy target, Secrets Manager secret, IAM role/policy)
 - ~5 resources from `module.sqs_healing_specialist` (IAM role, 2 policies, 2 attachments)
 - ~4 resources from `module.opensearch` (optional SLR, SG, domain)
+
+> **Note on RDS Proxy**: When `rds_enable_proxy = true`, the module creates ~7 additional resources (proxy, target group, target, security group, Secrets Manager secret + version, IAM role + policy). When `false`, only the base ~5 RDS resources are created.
 
 **6.2 Apply:**
 ```bash
@@ -258,7 +270,11 @@ aws opensearch describe-domain --domain-name healing-dev --query 'DomainStatus.{
 
 echo ""
 echo "=== RDS Instance ==="
-aws rds describe-db-instances --query 'DBInstances[?DBInstanceIdentifier==`healing-dev-db`].{Status:DBInstanceStatus,Engine:Engine,Class:DBInstanceClass}' --output table
+aws rds describe-db-instances --query 'DBInstances[?DBInstanceIdentifier==`healing-dev-pg`].{Status:DBInstanceStatus,Engine:Engine,Class:DBInstanceClass}' --output table
+
+echo ""
+echo "=== RDS Proxy ==="
+aws rds describe-db-proxies --query 'DBProxies[?DBProxyName==`healing-dev-pg-proxy`].{Status:Status,Endpoint:Endpoint,EngineFamily:EngineFamily}' --output table
 
 echo ""
 echo "=== IAM Pod Role ==="
@@ -269,6 +285,7 @@ aws iam get-role --role-name healing-dev-specialist-pod-role --query 'Role.Arn' 
 - EKS: Status = ACTIVE
 - OpenSearch: Processing = False, Endpoint has a value
 - RDS: Status = available
+- RDS Proxy: Status = available, Endpoint has a value
 - IAM role: OK
 
 ---
@@ -351,6 +368,26 @@ aws opensearch describe-domain --domain-name healing-dev --query 'DomainStatus.{
 ```
 Wait for it to complete.
 
+### "Error: creating RDS Proxy: DBProxyAlreadyExistsFault"
+
+**Cause:** A proxy with the same name already exists (possibly from a failed previous apply).
+**Fix:** Check and delete the orphaned proxy:
+```bash
+aws rds describe-db-proxies --query 'DBProxies[?contains(DBProxyName, `healing`)].{Name:DBProxyName,Status:Status}' --output table
+aws rds delete-db-proxy --db-proxy-name healing-dev-pg-proxy
+```
+Wait for deletion, then re-run `terraform apply`.
+
+### "Error: creating RDS Proxy: InvalidSubnet"
+
+**Cause:** Not all Availability Zones support RDS Proxy. If some of the private subnets are in an unsupported AZ, the proxy creation may fail.
+**Fix:** This is uncommon in `us-east-1` but can happen. Check the [AWS docs for supported AZs](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/rds-proxy.html) and adjust your `availability_zones` variable if needed.
+
+### Application can't connect through the proxy (TLS errors)
+
+**Cause:** `rds_proxy_require_tls = true` (default) requires the application to connect with SSL/TLS.
+**Fix:** Either configure your application's database connection to use SSL, or set `rds_proxy_require_tls = false` in dev for testing.
+
 ### "context deadline exceeded" during EKS operations
 
 **Cause:** The EKS cluster endpoint may not be reachable from your machine.
@@ -423,13 +460,15 @@ terraform destroy
 | EKS Cluster + 1 t3.medium node | 1 | ~$73/mo (EKS) + ~$30/mo (EC2) |
 | ECR Repository | 1 | free tier |
 | OpenSearch t3.small.search (1 node, 20 GiB) | 1 | ~$26/mo |
-| RDS PostgreSQL db.t3.micro (10 GiB) | 1 | ~$13/mo (or free tier) |
-| IAM Role (pod) | 1 | free |
-| IAM Policies (SQS + OpenSearch) | 2 | free |
-| Security Groups (OpenSearch + RDS) | 2 | free |
-| **Estimated total** | | **~$175/mo** |
+| RDS PostgreSQL db.t3.small (20 GiB) | 1 | ~$25/mo |
+| RDS Proxy | 1 | ~$18/mo (billed per vCPU/h) |
+| Secrets Manager secret (RDS credentials) | 1 | ~$0.40/mo |
+| IAM Role (pod) + IAM Role (proxy) | 2 | free |
+| IAM Policies (SQS + OpenSearch + Proxy) | 3 | free |
+| Security Groups (OpenSearch + RDS + Proxy) | 3 | free |
+| **Estimated total** | | **~$205/mo** |
 
-> Costs are approximate US East (N. Virginia) pricing as of 2026. Actual costs vary by usage.
+> Costs are approximate US East (N. Virginia) pricing as of 2026. Actual costs vary by usage. The RDS Proxy cost is based on the number of vCPUs of the target RDS instance.
 
 ---
 
@@ -441,6 +480,39 @@ terraform destroy
 2. `terraform apply`
 
 The new pod role will have IAM-restricted access to only its index prefix.
+
+### Scaling RDS
+
+Edit `terraform.tfvars`:
+```hcl
+rds_instance_class    = "db.t3.medium"
+rds_allocated_storage = 50
+```
+Then: `terraform apply`
+
+> RDS instance class changes cause a brief downtime (~2-5 min). The RDS Proxy absorbs this by holding connections and replaying them after the instance is back — applications connected via the proxy see minimal disruption.
+
+### Enabling / disabling the RDS Proxy
+
+Edit `terraform.tfvars`:
+```hcl
+rds_enable_proxy = true   # or false to disable
+```
+Then: `terraform apply`
+
+When enabled, applications should use the `rds_connection_endpoint` output as the database host — it automatically points to the proxy endpoint. When disabled, it falls back to the direct RDS address.
+
+> **Proxy vs ALB on destroy**: Unlike the ALB (which is created outside Terraform by the Load Balancer Controller and requires manual cleanup before `terraform destroy`), the RDS Proxy is **fully managed by Terraform**. No manual deletion is needed — `terraform destroy` handles the correct teardown order automatically.
+
+### Tuning RDS Proxy connection pool
+
+Edit `terraform.tfvars`:
+```hcl
+rds_proxy_max_connections_percent      = 80   # cap pool to 80% of max_connections
+rds_proxy_max_idle_connections_percent = 30   # keep fewer idle connections
+rds_proxy_connection_borrow_timeout    = 60   # shorter wait before timeout
+```
+Then: `terraform apply`
 
 ### Scaling OpenSearch
 

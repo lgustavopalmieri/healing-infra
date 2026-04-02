@@ -258,3 +258,45 @@ variable "rds_skip_final_snapshot" {
   type        = bool
   default     = true
 }
+
+variable "rds_enable_proxy" {
+  description = "Provision an RDS Proxy for connection pooling."
+  type        = bool
+  default     = false
+}
+
+variable "rds_proxy_idle_client_timeout" {
+  description = "Seconds a proxy connection can stay idle before being closed."
+  type        = number
+  default     = 1800
+}
+
+variable "rds_proxy_require_tls" {
+  description = "Require TLS for client connections to the proxy."
+  type        = bool
+  default     = true
+}
+
+variable "rds_proxy_max_connections_percent" {
+  description = "Upper limit (%) of max_connections the proxy can open on the RDS instance."
+  type        = number
+  default     = 100
+}
+
+variable "rds_proxy_max_idle_connections_percent" {
+  description = "Percentage of idle connections the proxy keeps open in the pool."
+  type        = number
+  default     = 50
+}
+
+variable "rds_proxy_connection_borrow_timeout" {
+  description = "Seconds the proxy waits for a connection to become available."
+  type        = number
+  default     = 120
+}
+
+variable "rds_proxy_debug_logging" {
+  description = "Enable enhanced logging for proxy SQL statements."
+  type        = bool
+  default     = false
+}

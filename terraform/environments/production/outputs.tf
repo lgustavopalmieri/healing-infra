@@ -37,6 +37,22 @@ output "opensearch_dashboard_endpoint" {
   value       = module.opensearch.dashboard_endpoint
 }
 
+# RDS PostgreSQL
+output "rds_endpoint" {
+  description = "RDS instance endpoint (host:port)."
+  value       = module.rds_postgres.endpoint
+}
+
+output "rds_connection_endpoint" {
+  description = "Recommended DB endpoint: proxy when enabled, otherwise direct RDS address."
+  value       = module.rds_postgres.connection_endpoint
+}
+
+output "rds_proxy_endpoint" {
+  description = "RDS Proxy endpoint (null when proxy is disabled)."
+  value       = module.rds_postgres.proxy_endpoint
+}
+
 # SQS / Workload Identity
 output "healing_specialist_role_arn" {
   description = "IAM role ARN for the healing specialist pod (annotate on K8s ServiceAccount)."

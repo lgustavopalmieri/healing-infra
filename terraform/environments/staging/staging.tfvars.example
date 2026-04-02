@@ -52,15 +52,24 @@ sqs_healing_k8s_namespace       = "healing"
 sqs_healing_k8s_service_account = "healing-specialist"
 sqs_healing_queue_prefix        = "specialist"
 
-# RDS PostgreSQL — staging sizes, no HA, skip snapshot
+# RDS PostgreSQL — staging sizes, with proxy
 rds_db_name             = "healing_specialist_db"
 rds_username            = "REPLACE-WITH-DB-USERNAME"
 rds_password            = "REPLACE-WITH-STRONG-PASSWORD"
 rds_engine_version      = "17"
-rds_instance_class      = "db.t3.micro"
-rds_allocated_storage   = 10
+rds_instance_class      = "db.t3.small"
+rds_allocated_storage   = 20
 rds_multi_az            = false
 rds_skip_final_snapshot = true
+
+# RDS Proxy — connection pooling
+rds_enable_proxy                      = true
+rds_proxy_idle_client_timeout         = 1800
+rds_proxy_require_tls                 = true
+rds_proxy_max_connections_percent     = 100
+rds_proxy_max_idle_connections_percent = 50
+rds_proxy_connection_borrow_timeout   = 120
+rds_proxy_debug_logging               = false
 
 tags = {
   Team = "platform"

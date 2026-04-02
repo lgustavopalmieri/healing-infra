@@ -27,6 +27,11 @@ output "vpc_id" {
   value       = module.eks.vpc_id
 }
 
+output "dns_records" {
+  description = "DNS records created as aliases to the ALB."
+  value       = module.eks.dns_records
+}
+
 # OpenSearch
 output "opensearch_endpoint" {
   description = "OpenSearch domain endpoint."
@@ -44,26 +49,6 @@ output "rds_endpoint" {
   value       = module.rds_postgres.endpoint
 }
 
-output "rds_address" {
-  description = "RDS instance hostname (without port)."
-  value       = module.rds_postgres.address
-}
-
-output "rds_port" {
-  description = "RDS instance port."
-  value       = module.rds_postgres.port
-}
-
-output "rds_db_name" {
-  description = "Name of the default database."
-  value       = module.rds_postgres.db_name
-}
-
-output "rds_username" {
-  description = "Master database username."
-  value       = module.rds_postgres.username
-}
-
 output "rds_connection_endpoint" {
   description = "Recommended DB endpoint: proxy when enabled, otherwise direct RDS address."
   value       = module.rds_postgres.connection_endpoint
@@ -78,19 +63,4 @@ output "rds_proxy_endpoint" {
 output "healing_specialist_role_arn" {
   description = "IAM role ARN for the healing specialist pod (annotate on K8s ServiceAccount)."
   value       = module.sqs_healing_specialist.iam_role_arn
-}
-
-output "healing_specialist_role_name" {
-  description = "IAM role name for the healing specialist pod."
-  value       = module.sqs_healing_specialist.iam_role_name
-}
-
-output "healing_specialist_sqs_policy_arn" {
-  description = "ARN of the SQS IAM policy (prefix-restricted queue management)."
-  value       = module.sqs_healing_specialist.sqs_policy_arn
-}
-
-output "healing_specialist_opensearch_policy_arn" {
-  description = "ARN of the OpenSearch IAM policy (index-restricted access)."
-  value       = module.sqs_healing_specialist.opensearch_policy_arn
 }

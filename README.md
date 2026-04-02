@@ -13,6 +13,8 @@ Production-grade infrastructure for the Healing platform — built on AWS with T
 | Search | AWS OpenSearch (VPC-based, IAM auth, index-level isolation) |
 | Messaging | SQS via IRSA (pods create their own queues, prefix-restricted IAM) |
 | Database | RDS PostgreSQL (VPC private subnets, not publicly accessible) |
+| Connection Pooling | RDS Proxy (optional per environment — reduces connection overhead under load) |
+| Secrets | AWS Secrets Manager (stores RDS credentials for the proxy) |
 | State backend | S3 + DynamoDB (locking) per environment |
 
 ## Multi-tenant index isolation
@@ -31,8 +33,8 @@ Each new service gets its own SQS module with a unique `opensearch_index_prefix`
 |---|---|---|---|
 | shared | Route53 hosted zone shared by staging and production | Custom domain | Always running |
 | dev | Full stack, lightweight config, no custom DNS | ALB hostname | Spin up / tear down quickly |
-| staging | Pre-production | Custom subdomain | Always running |
-| production | Live workloads (Multi-AZ OpenSearch, Multi-AZ RDS) | Custom domain | Always running |
+| staging | Pre-production, RDS Proxy enabled | Custom subdomain | Always running |
+| production | Live workloads (Multi-AZ, RDS Proxy, deletion protection) | Custom domain | Always running |
 
 ## Repository structure
 
@@ -54,7 +56,7 @@ terraform/
     ├── eks/            # VPC + EKS + ECR + ALB Controller + GitHub OIDC
     ├── opensearch/     # AWS OpenSearch domain (VPC-based) + IAM auth + SG
     ├── sqs/            # IRSA pod role + SQS IAM policy + OpenSearch IAM policy (index-restricted)
-    ├── rds-postgres/   # RDS PostgreSQL in EKS VPC private subnets
+    ├── rds-postgres/   # RDS PostgreSQL + optional RDS Proxy (connection pooling, Secrets Manager, IAM)
     └── privatelink/    # Generic VPC Interface Endpoint + SG + Private Hosted Zone
 
 k8s/                    # Kubernetes manifests (GitOps)
@@ -165,6 +167,8 @@ terraform -chdir=terraform/environments/$ENV destroy
 
 Dev is designed for this — `skip_final_snapshot = true`, `ecr_force_delete = true`, minimal resources. Staging and production have safeguards (Multi-AZ, final snapshots) that you should review before destroying.
 
+> **Important**: Before running `terraform destroy`, always delete Kubernetes Ingress resources first (`kubectl delete ingress --all -n healing`) — the ALB created by the Load Balancer Controller is **outside Terraform** and will block VPC deletion. The RDS Proxy, however, is fully Terraform-managed and needs no manual cleanup. See the [destroy guide](docs/dev-destroy-guide.md) for details.
+
 ### Quick reference — what to deploy for each scenario
 
 | I want to... | Bootstrap | Shared | Environment |
@@ -205,6 +209,16 @@ The AWS SDK automatically picks up IRSA credentials. No access keys needed.
 - **SQS**: Create/manage/send/receive queues matching `specialist-*`
 - **OpenSearch**: HTTP access restricted to `healing-*` indices only
 - **Cluster-level**: Read-only cluster health checks
+
+### Connecting to the database
+
+When RDS Proxy is enabled (`rds_enable_proxy = true`), applications should use the `rds_connection_endpoint` output as the database host:
+
+```bash
+terraform -chdir=terraform/environments/$ENV output rds_connection_endpoint
+```
+
+This output automatically resolves to the proxy endpoint when the proxy is enabled, or to the direct RDS address when it's disabled. The proxy handles connection pooling, reducing connection overhead during high-throughput workloads. TLS is required by default (`rds_proxy_require_tls = true`).
 
 ---
 

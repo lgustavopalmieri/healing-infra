@@ -72,7 +72,13 @@ cd terraform/environments/dev
 terraform destroy
 ```
 
-Type `yes` when prompted. This takes ~15-20 minutes.
+Type `yes` when prompted. This takes ~15-25 minutes.
+
+> **RDS Proxy — no manual action needed.** Unlike the ALB (created outside Terraform by the Kubernetes Load Balancer Controller), the RDS Proxy, its target group, Secrets Manager secret, and IAM role are all **fully managed by Terraform**. The destroy command handles the correct teardown order automatically:
+>
+> `proxy target → target group → proxy → security group → secrets → IAM role → RDS instance`
+>
+> You do **not** need to delete the proxy manually before running `terraform destroy`.
 
 ---
 
@@ -107,6 +113,21 @@ echo ""
 echo "=== Unattached Elastic IPs ==="
 aws ec2 describe-addresses \
   --query 'Addresses[?AssociationId==null].{AllocationId:AllocationId,PublicIp:PublicIp}' \
+  --output table
+
+# Check for orphaned RDS Proxies
+echo ""
+echo "=== Orphaned RDS Proxies ==="
+aws rds describe-db-proxies \
+  --query 'DBProxies[?contains(DBProxyName, `healing`)].{Name:DBProxyName,Status:Status}' \
+  --output table
+
+# Check for orphaned Secrets Manager secrets (RDS credentials)
+echo ""
+echo "=== Orphaned Secrets (RDS credentials) ==="
+aws secretsmanager list-secrets \
+  --filters Key=name,Values=healing-dev-rds-creds \
+  --query 'SecretList[].{Name:Name,DeletedDate:DeletedDate}' \
   --output table
 ```
 
@@ -153,7 +174,32 @@ for SG in $(aws ec2 describe-security-groups --filters "Name=group-name,Values=k
 done
 ```
 
-### 5.4 — Release orphaned Elastic IPs
+### 5.4 — Delete orphaned RDS Proxies
+
+```bash
+for PROXY in $(aws rds describe-db-proxies --query 'DBProxies[?contains(DBProxyName, `healing`)].DBProxyName' --output text); do
+  echo "Deregistering targets for $PROXY..."
+  for TGT in $(aws rds describe-db-proxy-targets --db-proxy-name "$PROXY" --query 'Targets[].RdsResourceId' --output text 2>/dev/null); do
+    aws rds deregister-db-proxy-targets --db-proxy-name "$PROXY" --db-instance-identifiers "$TGT" 2>/dev/null
+  done
+  echo "Deleting proxy $PROXY..."
+  aws rds delete-db-proxy --db-proxy-name "$PROXY"
+done
+
+echo "Waiting 30s for proxy cleanup..."
+sleep 30
+```
+
+### 5.5 — Delete orphaned Secrets Manager secrets
+
+```bash
+for SECRET_ARN in $(aws secretsmanager list-secrets --filters Key=name,Values=healing-dev-rds-creds --query 'SecretList[].ARN' --output text); do
+  echo "Deleting secret $SECRET_ARN..."
+  aws secretsmanager delete-secret --secret-id "$SECRET_ARN" --force-delete-without-recovery
+done
+```
+
+### 5.6 — Release orphaned Elastic IPs
 
 ```bash
 for ALLOC in $(aws ec2 describe-addresses --query 'Addresses[?AssociationId==null].AllocationId' --output text); do
@@ -162,7 +208,7 @@ for ALLOC in $(aws ec2 describe-addresses --query 'Addresses[?AssociationId==nul
 done
 ```
 
-### 5.5 — Re-run terraform destroy
+### 5.7 — Re-run terraform destroy
 
 If orphaned resources were blocking the VPC:
 
@@ -187,25 +233,27 @@ terraform destroy -var-file=dev.tfvars
 ## Quick Reference — Complete Destroy Flow
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│  Step 1: Delete Kubernetes Ingress                          │
-│    kubectl delete ingress --all -n healing                  │
-│    sleep 60                                                 │
-├─────────────────────────────────────────────────────────────┤
-│  Step 2: Delete remaining workloads                         │
-│    kubectl delete all --all -n healing                      │
-│    kubectl delete namespace healing                         │
-├─────────────────────────────────────────────────────────────┤
-│  Step 3: Terraform destroy (~15 min)                        │
-│    cd terraform/environments/dev                            │
-│    terraform destroy                                        │
-├─────────────────────────────────────────────────────────────┤
-│  Step 4: Verify — check for orphaned ALBs, SGs, EIPs       │
-├─────────────────────────────────────────────────────────────┤
-│  Step 5: Clean up orphans (only if Step 4 found something)  │
-├─────────────────────────────────────────────────────────────┤
-│  Step 6: Destroy bootstrap (optional)                       │
-│    cd terraform/bootstrap/dev                               │
-│    terraform destroy -var-file=dev.tfvars                   │
-└─────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────┐
+│  Step 1: Delete Kubernetes Ingress                           │
+│    kubectl delete ingress --all -n healing                   │
+│    sleep 60                                                  │
+├──────────────────────────────────────────────────────────────┤
+│  Step 2: Delete remaining workloads                          │
+│    kubectl delete all --all -n healing                       │
+│    kubectl delete namespace healing                          │
+├──────────────────────────────────────────────────────────────┤
+│  Step 3: Terraform destroy (~15-25 min)                      │
+│    cd terraform/environments/dev                             │
+│    terraform destroy                                         │
+│    (RDS Proxy is destroyed automatically — no manual action) │
+├──────────────────────────────────────────────────────────────┤
+│  Step 4: Verify — check for orphaned ALBs, SGs, EIPs,       │
+│          RDS Proxies, Secrets Manager secrets                 │
+├──────────────────────────────────────────────────────────────┤
+│  Step 5: Clean up orphans (only if Step 4 found something)   │
+├──────────────────────────────────────────────────────────────┤
+│  Step 6: Destroy bootstrap (optional)                        │
+│    cd terraform/bootstrap/dev                                │
+│    terraform destroy -var-file=dev.tfvars                    │
+└──────────────────────────────────────────────────────────────┘
 ```
