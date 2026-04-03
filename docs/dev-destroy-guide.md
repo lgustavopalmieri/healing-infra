@@ -82,7 +82,30 @@ Type `yes` when prompted. This takes ~15-25 minutes.
 
 ---
 
-## Step 4 — Verify no orphaned resources
+## Step 4 — Delete SQS queues
+
+The application creates SQS FIFO queues at runtime (not managed by Terraform). Delete all queues with the `specialist-` prefix:
+
+```bash
+aws sqs list-queues --queue-name-prefix specialist- --query 'QueueUrls[]' --output text \
+  | tr '\t' '\n' \
+  | while read -r URL; do
+      echo "Deleting $URL..."
+      aws sqs delete-queue --queue-url "$URL"
+    done
+```
+
+Verify they're gone:
+
+```bash
+aws sqs list-queues --queue-name-prefix specialist- --output text
+```
+
+Expected: empty output.
+
+---
+
+## Step 5 — Verify no orphaned resources
 
 After destroy completes, verify nothing was left behind:
 
@@ -131,15 +154,15 @@ aws secretsmanager list-secrets \
   --output table
 ```
 
-**Expected**: All sections should show empty tables. If anything shows up, proceed to Step 5.
+**Expected**: All sections should show empty tables. If anything shows up, proceed to Step 6.
 
 ---
 
-## Step 5 — Clean up orphaned resources (only if Step 4 found something)
+## Step 6 — Clean up orphaned resources (only if Step 5 found something)
 
 If Step 4 found orphaned resources, run these commands to clean them up. Skip any section that was already clean.
 
-### 5.1 — Delete orphaned ALBs
+### 6.1 — Delete orphaned ALBs
 
 ```bash
 # List and delete each ALB
@@ -156,7 +179,7 @@ echo "Waiting 60s for ENIs to release..."
 sleep 60
 ```
 
-### 5.2 — Delete orphaned Target Groups
+### 6.2 — Delete orphaned Target Groups
 
 ```bash
 for ARN in $(aws elbv2 describe-target-groups --query 'TargetGroups[?contains(TargetGroupName, `k8s-healing`)].TargetGroupArn' --output text); do
@@ -165,7 +188,7 @@ for ARN in $(aws elbv2 describe-target-groups --query 'TargetGroups[?contains(Ta
 done
 ```
 
-### 5.3 — Delete orphaned Security Groups
+### 6.3 — Delete orphaned Security Groups
 
 ```bash
 for SG in $(aws ec2 describe-security-groups --filters "Name=group-name,Values=k8s-*" --query 'SecurityGroups[].GroupId' --output text); do
@@ -174,7 +197,7 @@ for SG in $(aws ec2 describe-security-groups --filters "Name=group-name,Values=k
 done
 ```
 
-### 5.4 — Delete orphaned RDS Proxies
+### 6.4 — Delete orphaned RDS Proxies
 
 ```bash
 for PROXY in $(aws rds describe-db-proxies --query 'DBProxies[?contains(DBProxyName, `healing`)].DBProxyName' --output text); do
@@ -190,7 +213,7 @@ echo "Waiting 30s for proxy cleanup..."
 sleep 30
 ```
 
-### 5.5 — Delete orphaned Secrets Manager secrets
+### 6.5 — Delete orphaned Secrets Manager secrets
 
 ```bash
 for SECRET_ARN in $(aws secretsmanager list-secrets --filters Key=name,Values=healing-dev-rds-creds --query 'SecretList[].ARN' --output text); do
@@ -199,7 +222,7 @@ for SECRET_ARN in $(aws secretsmanager list-secrets --filters Key=name,Values=he
 done
 ```
 
-### 5.6 — Release orphaned Elastic IPs
+### 6.6 — Release orphaned Elastic IPs
 
 ```bash
 for ALLOC in $(aws ec2 describe-addresses --query 'Addresses[?AssociationId==null].AllocationId' --output text); do
@@ -208,7 +231,7 @@ for ALLOC in $(aws ec2 describe-addresses --query 'Addresses[?AssociationId==nul
 done
 ```
 
-### 5.7 — Re-run terraform destroy
+### 6.7 — Re-run terraform destroy
 
 If orphaned resources were blocking the VPC:
 
@@ -219,7 +242,7 @@ terraform destroy
 
 ---
 
-## Step 6 — Destroy the state backend (optional)
+## Step 7 — Destroy the state backend (optional)
 
 Only do this if you will never need the state again.
 
@@ -247,12 +270,15 @@ terraform destroy -var-file=dev.tfvars
 │    terraform destroy                                         │
 │    (RDS Proxy is destroyed automatically — no manual action) │
 ├──────────────────────────────────────────────────────────────┤
-│  Step 4: Verify — check for orphaned ALBs, SGs, EIPs,       │
+│  Step 4: Delete SQS queues (app-created, not in Terraform)   │
+│    aws sqs list-queues --queue-name-prefix specialist- ...   │
+├──────────────────────────────────────────────────────────────┤
+│  Step 5: Verify — check for orphaned ALBs, SGs, EIPs,       │
 │          RDS Proxies, Secrets Manager secrets                 │
 ├──────────────────────────────────────────────────────────────┤
-│  Step 5: Clean up orphans (only if Step 4 found something)   │
+│  Step 6: Clean up orphans (only if Step 5 found something)   │
 ├──────────────────────────────────────────────────────────────┤
-│  Step 6: Destroy bootstrap (optional)                        │
+│  Step 7: Destroy bootstrap (optional)                        │
 │    cd terraform/bootstrap/dev                                │
 │    terraform destroy -var-file=dev.tfvars                    │
 └──────────────────────────────────────────────────────────────┘
