@@ -32,6 +32,11 @@ data:
   OPENSEARCH_REGION: ""
   OPENSEARCH_INDEX_PREFIX: "healing"
   LICENSE_VALIDATION_BASE_URL: ""
+  # OpenTelemetry — metrics export to OTel Collector
+  OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector.observability.svc.cluster.local:4318"
+  OTEL_EXPORTER_OTLP_PROTOCOL: "http/protobuf"
+  OTEL_SERVICE_NAME: "healing-specialist"
+  OTEL_RESOURCE_ATTRIBUTES: "deployment.environment=production"
 ---
 apiVersion: v1
 kind: Secret
@@ -74,6 +79,9 @@ spec:
               containerPort: 50051
             - name: http
               containerPort: 8080
+          env:
+            - name: USER
+              value: "nobody"
           envFrom:
             - configMapRef:
                 name: healing-specialist

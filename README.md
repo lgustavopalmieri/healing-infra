@@ -60,6 +60,8 @@ terraform/
     └── privatelink/    # Generic VPC Interface Endpoint + SG + Private Hosted Zone
 
 k8s/                    # Kubernetes manifests (GitOps)
+└── observability/      # Observability stack (OTel Collector, Prometheus, Grafana)
+    └── dashboards/     # Grafana dashboard JSON files
 ```
 
 ---
@@ -167,7 +169,7 @@ terraform -chdir=terraform/environments/$ENV destroy
 
 Dev is designed for this — `skip_final_snapshot = true`, `ecr_force_delete = true`, minimal resources. Staging and production have safeguards (Multi-AZ, final snapshots) that you should review before destroying.
 
-> **Important**: Before running `terraform destroy`, always delete Kubernetes Ingress resources first (`kubectl delete ingress --all -n healing`) — the ALB created by the Load Balancer Controller is **outside Terraform** and will block VPC deletion. The RDS Proxy, however, is fully Terraform-managed and needs no manual cleanup. See the [destroy guide](docs/dev-destroy-guide.md) for details.
+> **Important**: Before running `terraform destroy`, always delete Kubernetes Ingress resources first (`kubectl delete ingress --all -n healing` and `kubectl delete ingress --all -n observability`), then destroy the observability stack (`bash k8s/observability/destroy.sh`) — the ALBs created by the Load Balancer Controller are **outside Terraform** and will block VPC deletion. The RDS Proxy, however, is fully Terraform-managed and needs no manual cleanup. See the [destroy guide](docs/dev-destroy-guide.md) for details.
 
 ### Quick reference — what to deploy for each scenario
 
@@ -240,7 +242,52 @@ This output automatically resolves to the proxy endpoint when the proxy is enabl
 
 Kubernetes manifests live in `k8s/` and represent the desired state of applications in the cluster. Changes merged to the main branch are automatically reconciled.
 
+## Observability
+
+The platform includes a built-in observability stack running inside the EKS cluster:
+
+| Component | Purpose |
+|---|---|
+| OpenTelemetry Collector | Receives application metrics via OTLP, exports to Prometheus |
+| Prometheus | Scrapes cluster metrics (kube-state-metrics, cAdvisor) and app metrics |
+| Grafana | Dashboards for Kubernetes cluster and application metrics |
+| kube-state-metrics | Generates metrics about pod count, deployment status, etc. |
+
+Access Grafana at `http://<OBSERVABILITY_ALB>/grafana` (separate ALB from application traffic).
+
+### Deploy the observability stack
+
+```bash
+# After kubectl is configured for the target cluster
+bash k8s/observability/apply.sh
+```
+
+### Destroy the observability stack
+
+```bash
+bash k8s/observability/destroy.sh
+```
+
+### Add a new Grafana dashboard
+
+Drop a `.json` file in `k8s/observability/dashboards/` and re-run `apply.sh`.
+
+### Connect an application to the observability stack
+
+Add these env vars to your application's ConfigMap:
+
+```yaml
+OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector.observability.svc.cluster.local:4318"
+OTEL_EXPORTER_OTLP_PROTOCOL: "http/protobuf"
+OTEL_SERVICE_NAME: "<your-service-name>"
+OTEL_RESOURCE_ATTRIBUTES: "deployment.environment=<env>"
+```
+
+See [Application OTel Configuration Guide](docs/app-otel-config.md) for full details.
+
 ## Detailed guides
 
 - [Dev environment deployment guide](docs/dev-deployment-guide.md) — step-by-step with troubleshooting
 - [Dev environment destroy guide](docs/dev-destroy-guide.md) — safe teardown without orphaned resources
+- [Observability action plan](docs/observability-action-plan.md) — architecture and implementation details
+- [Application OTel configuration](docs/app-otel-config.md) — how to connect your app to the observability stack

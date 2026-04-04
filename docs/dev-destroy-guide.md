@@ -17,7 +17,11 @@ Step-by-step guide to completely destroy the `dev` environment without orphaned 
 The AWS Load Balancer Controller creates ALBs, Target Groups, and Security Groups **outside of Terraform**. If you skip this step, those resources will be orphaned and block the VPC deletion.
 
 ```bash
+# Delete application Ingress
 kubectl delete ingress --all -n healing
+
+# Delete observability Ingress
+kubectl delete ingress --all -n observability
 ```
 
 Verify the ALB is being deprovisioned:
@@ -47,7 +51,23 @@ Expected: empty output (no ALBs remaining).
 
 ---
 
-## Step 2 — Delete remaining Kubernetes workloads
+## Step 2 — Delete the observability stack
+
+Destroy the observability components before deleting application workloads:
+
+```bash
+bash k8s/observability/destroy.sh
+```
+
+Wait for the observability ALB to be deprovisioned:
+
+```bash
+sleep 30
+```
+
+---
+
+## Step 3 — Delete remaining Kubernetes workloads
 
 Delete all workloads so the controller has time to clean up any remaining cloud resources (NLBs, target groups, etc.) before the cluster goes away.
 
@@ -65,7 +85,7 @@ sleep 10
 
 ---
 
-## Step 3 — Terraform destroy
+## Step 4 — Terraform destroy
 
 ```bash
 cd terraform/environments/dev
@@ -82,7 +102,7 @@ Type `yes` when prompted. This takes ~15-25 minutes.
 
 ---
 
-## Step 4 — Delete SQS queues
+## Step 5 — Delete SQS queues
 
 The application creates SQS FIFO queues at runtime (not managed by Terraform). Delete all queues with the `specialist-` prefix:
 
@@ -105,7 +125,7 @@ Expected: empty output.
 
 ---
 
-## Step 5 — Verify no orphaned resources
+## Step 6 — Verify no orphaned resources
 
 After destroy completes, verify nothing was left behind:
 
@@ -154,15 +174,15 @@ aws secretsmanager list-secrets \
   --output table
 ```
 
-**Expected**: All sections should show empty tables. If anything shows up, proceed to Step 6.
+**Expected**: All sections should show empty tables. If anything shows up, proceed to Step 7.
 
 ---
 
-## Step 6 — Clean up orphaned resources (only if Step 5 found something)
+## Step 7 — Clean up orphaned resources (only if Step 6 found something)
 
-If Step 4 found orphaned resources, run these commands to clean them up. Skip any section that was already clean.
+If Step 6 found orphaned resources, run these commands to clean them up. Skip any section that was already clean.
 
-### 6.1 — Delete orphaned ALBs
+### 7.1 — Delete orphaned ALBs
 
 ```bash
 # List and delete each ALB
@@ -179,7 +199,7 @@ echo "Waiting 60s for ENIs to release..."
 sleep 60
 ```
 
-### 6.2 — Delete orphaned Target Groups
+### 7.2 — Delete orphaned Target Groups
 
 ```bash
 for ARN in $(aws elbv2 describe-target-groups --query 'TargetGroups[?contains(TargetGroupName, `k8s-healing`)].TargetGroupArn' --output text); do
@@ -188,7 +208,7 @@ for ARN in $(aws elbv2 describe-target-groups --query 'TargetGroups[?contains(Ta
 done
 ```
 
-### 6.3 — Delete orphaned Security Groups
+### 7.3 — Delete orphaned Security Groups
 
 ```bash
 for SG in $(aws ec2 describe-security-groups --filters "Name=group-name,Values=k8s-*" --query 'SecurityGroups[].GroupId' --output text); do
@@ -197,7 +217,7 @@ for SG in $(aws ec2 describe-security-groups --filters "Name=group-name,Values=k
 done
 ```
 
-### 6.4 — Delete orphaned RDS Proxies
+### 7.4 — Delete orphaned RDS Proxies
 
 ```bash
 for PROXY in $(aws rds describe-db-proxies --query 'DBProxies[?contains(DBProxyName, `healing`)].DBProxyName' --output text); do
@@ -213,7 +233,7 @@ echo "Waiting 30s for proxy cleanup..."
 sleep 30
 ```
 
-### 6.5 — Delete orphaned Secrets Manager secrets
+### 7.5 — Delete orphaned Secrets Manager secrets
 
 ```bash
 for SECRET_ARN in $(aws secretsmanager list-secrets --filters Key=name,Values=healing-dev-rds-creds --query 'SecretList[].ARN' --output text); do
@@ -222,7 +242,7 @@ for SECRET_ARN in $(aws secretsmanager list-secrets --filters Key=name,Values=he
 done
 ```
 
-### 6.6 — Release orphaned Elastic IPs
+### 7.6 — Release orphaned Elastic IPs
 
 ```bash
 for ALLOC in $(aws ec2 describe-addresses --query 'Addresses[?AssociationId==null].AllocationId' --output text); do
@@ -231,7 +251,7 @@ for ALLOC in $(aws ec2 describe-addresses --query 'Addresses[?AssociationId==nul
 done
 ```
 
-### 6.7 — Re-run terraform destroy
+### 7.7 — Re-run terraform destroy
 
 If orphaned resources were blocking the VPC:
 
@@ -242,7 +262,7 @@ terraform destroy
 
 ---
 
-## Step 7 — Destroy the state backend (optional)
+## Step 8 — Destroy the state backend (optional)
 
 Only do this if you will never need the state again.
 
@@ -257,28 +277,33 @@ terraform destroy -var-file=dev.tfvars
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
-│  Step 1: Delete Kubernetes Ingress                           │
+│  Step 1: Delete Kubernetes Ingress (all namespaces)          │
 │    kubectl delete ingress --all -n healing                   │
+│    kubectl delete ingress --all -n observability             │
 │    sleep 60                                                  │
 ├──────────────────────────────────────────────────────────────┤
-│  Step 2: Delete remaining workloads                          │
+│  Step 2: Destroy observability stack                         │
+│    bash k8s/observability/destroy.sh                         │
+│    sleep 30                                                  │
+├──────────────────────────────────────────────────────────────┤
+│  Step 3: Delete remaining workloads                          │
 │    kubectl delete all --all -n healing                       │
 │    kubectl delete namespace healing                          │
 ├──────────────────────────────────────────────────────────────┤
-│  Step 3: Terraform destroy (~15-25 min)                      │
+│  Step 4: Terraform destroy (~15-25 min)                      │
 │    cd terraform/environments/dev                             │
 │    terraform destroy                                         │
 │    (RDS Proxy is destroyed automatically — no manual action) │
 ├──────────────────────────────────────────────────────────────┤
-│  Step 4: Delete SQS queues (app-created, not in Terraform)   │
+│  Step 5: Delete SQS queues (app-created, not in Terraform)   │
 │    aws sqs list-queues --queue-name-prefix specialist- ...   │
 ├──────────────────────────────────────────────────────────────┤
-│  Step 5: Verify — check for orphaned ALBs, SGs, EIPs,       │
+│  Step 6: Verify — check for orphaned ALBs, SGs, EIPs,       │
 │          RDS Proxies, Secrets Manager secrets                 │
 ├──────────────────────────────────────────────────────────────┤
-│  Step 6: Clean up orphans (only if Step 5 found something)   │
+│  Step 7: Clean up orphans (only if Step 6 found something)   │
 ├──────────────────────────────────────────────────────────────┤
-│  Step 7: Destroy bootstrap (optional)                        │
+│  Step 8: Destroy bootstrap (optional)                        │
 │    cd terraform/bootstrap/dev                                │
 │    terraform destroy -var-file=dev.tfvars                    │
 └──────────────────────────────────────────────────────────────┘

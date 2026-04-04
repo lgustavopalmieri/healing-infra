@@ -14,9 +14,10 @@ Step-by-step guide to provision the `dev` environment from zero. Follow every st
 6. [Apply — Single Command](#6-apply--single-command)
 7. [Post-Deploy Verification](#7-post-deploy-verification)
 8. [Configure kubectl](#8-configure-kubectl)
-9. [Deploy the Application (K8s ServiceAccount)](#9-deploy-the-application-k8s-serviceaccount)
-10. [Troubleshooting](#10-troubleshooting)
-11. [Teardown (Destroy)](#11-teardown-destroy)
+9. [Deploy the Observability Stack](#9-deploy-the-observability-stack)
+10. [Deploy the Application (K8s ServiceAccount)](#10-deploy-the-application-k8s-serviceaccount)
+11. [Troubleshooting](#11-troubleshooting)
+12. [Teardown (Destroy)](#12-teardown-destroy)
 
 ---
 
@@ -304,7 +305,32 @@ You should see your node(s) in `Ready` state.
 
 ---
 
-## 9. Deploy the Application (K8s ServiceAccount)
+## 9. Deploy the Observability Stack
+
+Deploy the observability stack (OTel Collector, Prometheus, Grafana, kube-state-metrics) before deploying applications. This ensures the metrics pipeline is ready to receive data.
+
+```bash
+bash k8s/observability/apply.sh
+```
+
+The script deploys all components in order and waits for each to be ready. At the end it prints the Grafana URL.
+
+**Verification:**
+```bash
+# Check all pods are running
+kubectl get pods -n observability
+
+# Get the Grafana URL
+kubectl get ingress observability -n observability
+```
+
+Access Grafana at `http://<ALB_HOSTNAME>/grafana`. Default credentials: `admin` / see the `grafana-admin` Secret in the `observability` namespace.
+
+> The observability ALB is separate from the application ALB (different `group.name`). Each has its own DNS hostname.
+
+---
+
+## 10. Deploy the Application (K8s ServiceAccount)
 
 The IRSA role is ready. Now create the Kubernetes ServiceAccount that links to it:
 
@@ -339,7 +365,7 @@ The annotation `eks.amazonaws.com/role-arn` is what makes IRSA work. Any pod usi
 
 ---
 
-## 10. Troubleshooting
+## 11. Troubleshooting
 
 ### "Error: creating OpenSearch Service Linked Role: already exists"
 
@@ -399,16 +425,18 @@ kubectl get nodes
 
 ---
 
-## 11. Teardown (Destroy)
+## 12. Teardown (Destroy)
 
 See the full destroy guide: **[dev-destroy-guide.md](dev-destroy-guide.md)**
 
-The critical step: **delete Kubernetes Ingress resources before running `terraform destroy`**, otherwise the ALB and Security Groups created by the Load Balancer Controller will be orphaned and block VPC deletion.
+The critical steps: **delete Kubernetes Ingress resources from all namespaces and destroy the observability stack before running `terraform destroy`**, otherwise the ALBs and Security Groups created by the Load Balancer Controller will be orphaned and block VPC deletion.
 
 Quick version:
 
 ```bash
 kubectl delete ingress --all -n healing
+kubectl delete ingress --all -n observability
+bash k8s/observability/destroy.sh
 sleep 60
 cd terraform/environments/dev
 terraform destroy
@@ -442,10 +470,13 @@ terraform destroy
 │  Step 6: Configure kubectl                                  │
 │    aws eks update-kubeconfig --name healing-dev             │
 ├─────────────────────────────────────────────────────────────┤
-│  Step 7: Create K8s ServiceAccount                          │
+│  Step 7: Deploy observability stack                         │
+│    bash k8s/observability/apply.sh                          │
+├─────────────────────────────────────────────────────────────┤
+│  Step 8: Create K8s ServiceAccount                          │
 │    kubectl apply -f service-account.yaml                    │
 ├─────────────────────────────────────────────────────────────┤
-│  Step 8: Deploy your application                            │
+│  Step 9: Deploy your application                            │
 │    # Your app deployment with serviceAccountName set        │
 └─────────────────────────────────────────────────────────────┘
 ```
