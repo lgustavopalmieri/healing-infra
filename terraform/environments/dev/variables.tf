@@ -169,25 +169,37 @@ variable "opensearch_create_service_linked_role" {
 }
 
 ###############################################################################
-# SQS / Workload Identity — Healing Specialist
+# healing-specialist — pod identity inputs
 ###############################################################################
 
-variable "sqs_healing_k8s_namespace" {
-  description = "Kubernetes namespace for the healing specialist service."
+variable "specialist_k8s_namespace" {
+  description = "Kubernetes namespace for the healing-specialist pod."
   type        = string
   default     = "healing"
 }
 
-variable "sqs_healing_k8s_service_account" {
-  description = "Kubernetes ServiceAccount for the healing specialist service."
+variable "specialist_k8s_service_account" {
+  description = "Kubernetes ServiceAccount bound to the healing-specialist pod role."
   type        = string
   default     = "healing-specialist"
 }
 
-variable "sqs_healing_queue_prefix" {
-  description = "SQS queue name prefix for the healing specialist service."
+variable "specialist_sqs_queue_prefix" {
+  description = "SQS queue name prefix the healing-specialist pod is allowed to manage."
   type        = string
   default     = "specialist"
+}
+
+variable "specialist_sns_topic_prefix" {
+  description = "SNS topic name prefix the healing-specialist pod is allowed to manage."
+  type        = string
+  default     = "specialist"
+}
+
+variable "specialist_opensearch_index_prefix" {
+  description = "OpenSearch index prefix the healing-specialist pod is allowed to access."
+  type        = string
+  default     = "healing"
 }
 
 ###############################################################################

@@ -74,23 +74,28 @@ output "rds_proxy_endpoint" {
   value       = module.rds_postgres.proxy_endpoint
 }
 
-# SQS / Workload Identity
+# healing-specialist — pod identity + attached capabilities
 output "healing_specialist_role_arn" {
-  description = "IAM role ARN for the healing specialist pod (annotate on K8s ServiceAccount)."
-  value       = module.sqs_healing_specialist.iam_role_arn
+  description = "IAM role ARN for the healing-specialist pod (annotate on the K8s ServiceAccount via eks.amazonaws.com/role-arn)."
+  value       = module.specialist_irsa.role_arn
 }
 
 output "healing_specialist_role_name" {
-  description = "IAM role name for the healing specialist pod."
-  value       = module.sqs_healing_specialist.iam_role_name
+  description = "IAM role name for the healing-specialist pod."
+  value       = module.specialist_irsa.role_name
 }
 
 output "healing_specialist_sqs_policy_arn" {
-  description = "ARN of the SQS IAM policy (prefix-restricted queue management)."
-  value       = module.sqs_healing_specialist.sqs_policy_arn
+  description = "ARN of the SQS IAM policy attached to the healing-specialist pod role."
+  value       = module.specialist_sqs.policy_arn
+}
+
+output "healing_specialist_sns_policy_arn" {
+  description = "ARN of the SNS IAM policy attached to the healing-specialist pod role."
+  value       = module.specialist_sns.policy_arn
 }
 
 output "healing_specialist_opensearch_policy_arn" {
-  description = "ARN of the OpenSearch IAM policy (index-restricted access)."
-  value       = module.sqs_healing_specialist.opensearch_policy_arn
+  description = "ARN of the OpenSearch IAM policy attached to the healing-specialist pod role."
+  value       = module.specialist_opensearch.policy_arn
 }

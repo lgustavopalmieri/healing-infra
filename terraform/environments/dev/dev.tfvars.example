@@ -44,10 +44,14 @@ opensearch_zone_awareness_enabled     = false
 opensearch_dedicated_master_enabled   = false
 opensearch_create_service_linked_role = false  # set to true ONLY if the SLR doesn't exist yet in your account
 
-# SQS / Workload Identity — Healing Specialist
-sqs_healing_k8s_namespace       = "healing"
-sqs_healing_k8s_service_account = "healing-specialist"
-sqs_healing_queue_prefix        = "specialist"
+# healing-specialist — pod identity + attached capabilities
+# These inputs drive modules: service-irsa, iam-policy-sqs, iam-policy-sns,
+# iam-policy-opensearch (see environments/dev/specialist.tf).
+specialist_k8s_namespace           = "healing"
+specialist_k8s_service_account     = "healing-specialist"
+specialist_sqs_queue_prefix        = "specialist"
+specialist_sns_topic_prefix        = "specialist"
+specialist_opensearch_index_prefix = "healing"
 
 # RDS PostgreSQL — scaled for load testing, with proxy
 rds_db_name             = "healing_specialist_db"

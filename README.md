@@ -15,7 +15,7 @@ This repo provisions the cloud foundations only; application code lives elsewher
 | Container registry | ECR with GitHub Actions OIDC (keyless `docker push`) |
 | DNS (optional) | Route53 hosted zone + ALB alias records — only in the `shared` env |
 | Search | OpenSearch domain (VPC-only, IAM auth, index-prefix isolation per service) |
-| Messaging | Per-service SQS queues via IRSA, prefix-restricted IAM |
+| Messaging | Per-service SQS queues + SNS topics via IRSA, prefix-restricted IAM |
 | Database | RDS PostgreSQL (VPC-private, not publicly accessible) |
 | Connection pooling | RDS Proxy (optional, toggled per env) + Secrets Manager |
 | State backend | S3 bucket + DynamoDB lock table per environment |
@@ -28,7 +28,7 @@ OpenSearch uses IAM-based isolation, not the fine-grained access control (FGAC) 
 2. **Domain policy** — permissive inside the VPC; the SG is the network boundary.
 3. **Per-pod IAM** — each pod's IRSA role is restricted by resource ARN to a specific index prefix (e.g. `healing-*`).
 
-New services are onboarded by adding another `module "sqs_<service>"` block with a unique `opensearch_index_prefix`; they inherit their own pod role, their own SQS prefix, and their own index prefix.
+New services are onboarded by composing a pod role and its capabilities in a single `environments/<env>/<service>.tf`: one `service-irsa` call for the role, then one `iam-policy-<capability>` call per AWS capability (SQS, SNS, OpenSearch, ...). Each scoped by its own prefix. Nothing existing gets mutated.
 
 ---
 
@@ -61,9 +61,11 @@ terraform/
     ├── eks/                # VPC + EKS + ECR + ALB Controller + GitHub OIDC
     ├── opensearch/         # OpenSearch domain (VPC-only) + IAM auth + SG
     ├── rds-postgres/       # RDS + optional RDS Proxy + Secrets Manager + IAM
-    ├── sqs/                # IRSA pod role + per-service SQS IAM + OpenSearch IAM (index-restricted)
-    ├── privatelink/        # Reusable VPC Interface Endpoint + SG + Private Hosted Zone (not wired into any env yet)
-    └── service-irsa/       # Placeholder for a future shared IRSA helper (empty)
+    ├── service-irsa/       # Pod IAM role + IRSA trust policy (one per service, no inline policies)
+    ├── iam-policy-sqs/     # Scoped SQS policy, attaches to a role from service-irsa
+    ├── iam-policy-sns/     # Scoped SNS policy, attaches to a role from service-irsa
+    ├── iam-policy-opensearch/ # Scoped OpenSearch policy (index-prefix ARN), attaches to a role from service-irsa
+    └── privatelink/        # Reusable VPC Interface Endpoint + SG + Private Hosted Zone (not wired into any env yet)
 
 k8s/                        # Kubernetes manifests applied via kubectl + bash scripts
 ├── observability/          # OTel Collector, Prometheus, Grafana, kube-state-metrics
@@ -77,7 +79,7 @@ k8s.example/                # Reference copies of k8s/ — copy from here when b
 docs/                       # Deep-dive guides (deployment, destroy, observability, OTel wiring)
 ```
 
-> `modules/privatelink/` and `modules/service-irsa/` exist in the tree but are not currently consumed by `environments/dev/` or `environments/shared/`. Keep them in mind when extending, but don't treat them as part of the live stack.
+> `modules/privatelink/` exists in the tree but is not currently consumed by `environments/dev/` or `environments/shared/`. Keep it in mind when extending, but don't treat it as part of the live stack.
 
 ---
 
@@ -216,8 +218,11 @@ Reference it in the pod spec (`serviceAccountName: healing-specialist`) and the 
 
 **What the `healing-specialist` pod role can do:**
 - **SQS** — create / manage / send / receive queues matching `specialist-*`
+- **SNS** — create / manage / publish / subscribe topics matching `specialist-*`
 - **OpenSearch** — HTTP access restricted by ARN to `healing-*` indices
 - **Cluster** — read-only (`_cluster/health`, `_cat`)
+
+The role and its attached policies are composed in [`terraform/environments/dev/specialist.tf`](terraform/environments/dev/specialist.tf) using one `service-irsa` + three `iam-policy-*` modules. To grant a new capability, add another `iam-policy-*` module call in the same file — no existing module changes.
 
 A reference deployment and scripts are under `k8s/specialist/`:
 
